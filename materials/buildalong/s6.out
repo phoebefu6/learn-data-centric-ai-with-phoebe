@@ -1,0 +1,7 @@
+(1797, 64) [178 182 177 183 181 182 181 179 174 180]
+500 800 497
+true labels: 489 of 500
+audit: 17 of 20 sampled flags were real errors
+pass 2: flagged 6 of which still-wrong labels 5 | wrong labels before pass 2: 61
+pass 1: 478 | pass 2: 479 of 500
+wrong labels after pass 2: 57

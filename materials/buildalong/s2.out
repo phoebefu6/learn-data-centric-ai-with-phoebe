@@ -1,0 +1,14 @@
+(1797, 64) [178 182 177 183 181 182 181 179 174 180]
+500 800 497
+true labels: 489 of 500
+A accuracy against the true digit: 83.4%
+B accuracy against the true digit: 83.4%
+C accuracy against the true digit: 80.5%
+A-B agreement 83.8%, chance 10.1%, kappa 0.819
+A-C agreement 67.6%, chance 10.0%, kappa 0.640
+0 100%  1 71%  2 100%  3 71%  4 67%  5 100%  6 100%  7 76%  8 77%  9 72%  
+A and B agree on 670 rows; of those, 68 are wrong together
+majority vote accuracy: 89.8% | three-way splits: 25
+majority vote wrong labels: 82 | A alone: 133
+1/7 rows fixed by the new rule: 48
+model on A: 457 | on A with the 1/7 rule: 472 | on majority vote: 483 of 500

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 2 of 6. Two careful labellers can give the same image two different labels. Measure agreement beyond percent the same, see why high kappa is not correctness, and choose between more labellers and a better guideline.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="When labellers disagree - learn data-centric ai with phoebe">
+<meta property="og:description" content="Session 2 of 6. Two constructed labellers agree 83.8 percent of the time with a kappa of 0.819, and 68 of the rows they agree on are wrong together. Agreement measures consistency, not correctness.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/courses/02-when-labellers-disagree.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="When labellers disagree - learn data-centric ai with phoebe">
+<meta name="twitter:description" content="Session 2 of 6. Kappa, majority vote and the guideline rewrite, measured on 800 real digits with three constructed labellers.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 2 · When labellers disagree - learn data-centric ai with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=3">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-centric-ai-with-phoebe</a> / Session 2 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data-Centric AI with Phoebe · Session 2 of 6</div>
+    <h1>When labellers <span class="accent">disagree</span></h1>
+    <p class="sub">Before any row can be called wrong, somebody has to say what right is. Give the same image to two careful people and they will sometimes hand back two different labels, not because either is careless, but because the instruction they were given leaves room. Tonight we measure that room: raw agreement, agreement beyond chance, where it concentrates by class, and the uncomfortable fact that two labellers who agree can be wrong together. Then we compare the two ways out, paying for more labels per row or rewriting the rule, on 800 real digits with three constructed labellers.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">ML engineers, labelling leads, data scientists</span>
+      <span class="chip audience">Python, numpy</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:6">3-20 · Consistency, agreement, consensus</span>
+      <span class="a3" style="flex:7">20-42 · Build-along: three labellers, one vote</span>
+      <span class="a4" style="flex:1">42-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we start</h2>
+    </div>
+    <p class="lede">Session 1 froze a model and a test set and planted declared noise in 800 training labels. That noise came from one imaginary labeller. Real labelling teams have several people, a written guideline, and a queue of rows somebody argued about. Tonight the question moves one step upstream of "which rows are wrong": how consistent is the labelling in the first place, and when two people disagree, is the fix another person or a better rule?</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">★ Build-along = run the code yourself</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Ng's two-labeller protocol, Cohen's kappa computed by hand, a per-class agreement table that points at the rule to rewrite, the proof that agreement is not correctness (670 rows agreed, 68 wrong together), and a costed comparison of majority vote against a guideline rewrite on the same frozen model.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers label consistency</span>
+      <h2>Two careful people, two answers</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">Ng's 2021 talk spends several slides on one idea: much of what looks like label noise is not error at all, it is inconsistency. Three transcriptions of the same audio clip read "Um, today's weather", "Um... today's weather" and "Today's weather". None of them is wrong. The instruction never said what to do with a hesitation. A model trained on all three learns that the answer is a coin toss, and no amount of model work removes a coin toss that lives in the labels.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One real training image, row 28, a handwritten 7, goes to two constructed labellers working from the same guideline. Labeller A writes 1, labeller B writes 7. The two labels are compared, the disagreement is logged against the guideline, the 1 and 7 rule is revised to say a 7 has a top bar and a 1 is a single stroke, and a dashed arrow returns to the labellers to relabel and measure again.">
+        <defs>
+          <filter id="s2aSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="12" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s2aHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s2aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s2aH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s2aL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s2aS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s2aB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s2aV { font: 800 20px Inter, sans-serif; fill: #3D4A1C; }
+          .s2aW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s2aN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s2aH" x="30" y="26">ONE IMAGE, TWO CAREFUL LABELLERS, TWO ANSWERS, ONE RULE TO FIX</text>
+
+        <g filter="url(#s2aSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- the real image -->
+          <rect x="50" y="84" width="80" height="80" rx="4" transform="rotate(-1 90 124)" fill="#FFFFFF"/>
+          <!-- two labellers -->
+          <rect x="200" y="64" width="160" height="54" rx="8" transform="rotate(-1.2 280 91)" fill="#F1F4E6"/>
+          <rect x="200" y="150" width="160" height="54" rx="8" transform="rotate(1 280 177)" fill="#F1F4E6"/>
+          <path d="M134 112 L194 92" marker-end="url(#s2aAr)"/>
+          <path d="M134 138 L194 174" marker-end="url(#s2aAr)"/>
+          <!-- two labels -->
+          <rect x="400" y="70" width="44" height="42" rx="6" transform="rotate(2 422 91)" fill="#FFFFFF"/>
+          <rect x="400" y="156" width="44" height="42" rx="6" transform="rotate(-2 422 177)" fill="#FFFFFF"/>
+          <path d="M364 91 L394 91" marker-end="url(#s2aAr)"/>
+          <path d="M364 177 L394 177" marker-end="url(#s2aAr)"/>
+          <!-- the diff -->
+          <rect x="490" y="100" width="120" height="64" rx="8" transform="rotate(-0.8 550 132)" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M448 91 L484 118" marker-end="url(#s2aAr)"/>
+          <path d="M448 177 L484 148" marker-end="url(#s2aAr)"/>
+          <!-- the guideline -->
+          <rect x="660" y="84" width="190" height="96" rx="8" transform="rotate(0.5 755 132)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M614 132 L654 132" marker-end="url(#s2aAr)"/>
+          <!-- pencil doodle -->
+          <path d="M812 72 L838 46 L846 54 L820 80 Z M812 72 L808 84 L820 80" stroke="#545B44"/>
+          <!-- loop back: relabel and measure again -->
+          <path d="M755 186 C755 280 290 286 280 210" stroke="#A63F1C" stroke-dasharray="6 5" marker-end="url(#s2aAr)"/>
+        </g>
+        <g stroke="none"><path d="M108 108h8v8h-8zM68 116h8v8h-8zM100 124h8v8h-8zM68 140h8v8h-8zM84 148h8v8h-8z" fill="#1E2413" fill-opacity="0.06"/><path d="M68 92h8v8h-8zM100 108h8v8h-8zM68 148h8v8h-8z" fill="#1E2413" fill-opacity="0.12"/><path d="M84 140h8v8h-8z" fill="#1E2413" fill-opacity="0.19"/><path d="M76 100h8v8h-8z" fill="#1E2413" fill-opacity="0.25"/><path d="M92 92h8v8h-8z" fill="#1E2413" fill-opacity="0.31"/><path d="M92 108h8v8h-8zM92 124h8v8h-8z" fill="#1E2413" fill-opacity="0.44"/><path d="M76 116h8v8h-8zM84 132h8v8h-8z" fill="#1E2413" fill-opacity="0.50"/><path d="M92 100h8v8h-8z" fill="#1E2413" fill-opacity="0.56"/><path d="M108 116h8v8h-8zM68 124h8v8h-8z" fill="#1E2413" fill-opacity="0.62"/><path d="M84 100h8v8h-8z" fill="#1E2413" fill-opacity="0.69"/><path d="M84 108h8v8h-8z" fill="#1E2413" fill-opacity="0.81"/><path d="M92 116h8v8h-8zM76 132h8v8h-8z" fill="#1E2413" fill-opacity="0.88"/><path d="M76 92h8v8h-8zM84 124h8v8h-8zM76 148h8v8h-8z" fill="#1E2413" fill-opacity="0.94"/><path d="M84 92h8v8h-8zM84 116h8v8h-8zM100 116h8v8h-8zM76 124h8v8h-8zM76 140h8v8h-8z" fill="#1E2413" fill-opacity="1.00"/></g>
+
+        <text class="s2aS" x="90" y="184" text-anchor="middle">row 28, real</text>
+        <text class="s2aS" x="90" y="200" text-anchor="middle">true digit 7</text>
+        <text class="s2aL" x="216" y="88">Labeller A</text>
+        <text class="s2aS" x="216" y="106">constructed, rule v1</text>
+        <text class="s2aL" x="216" y="174">Labeller B</text>
+        <text class="s2aS" x="216" y="192">constructed, rule v1</text>
+        <text class="s2aV" x="422" y="98" text-anchor="middle">1</text>
+        <text class="s2aV" x="422" y="184" text-anchor="middle">7</text>
+        <text class="s2aW" x="506" y="128">diff</text>
+        <text class="s2aW" x="506" y="148">1 or 7?</text>
+        <text class="s2aL" x="676" y="108">Guideline v2</text>
+        <text class="s2aS" x="676" y="128">1/7: a 7 has a top bar,</text>
+        <text class="s2aS" x="676" y="144">a 1 is a single stroke</text>
+        <text class="s2aB" x="676" y="166">relabel that class pair</text>
+        <text class="s2aB" x="520" y="284" text-anchor="middle">relabel the disputed classes, measure again</text>
+
+        <text class="s2aN" x="30" y="316">Ng's protocol: two independent labellers on a sample, measure where they disagree, revise the rule, repeat.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the disagreement is logged against the guideline, not against a person; the image is real, the labellers are constructed</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The protocol, in Ng's own words<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Ng's slide on making data quality systematic is three sentences long, and every word is doing work: "Ask two independent labelers to label a sample of images. Measure consistency between labelers to discover where they disagree. For classes where the labelers disagree, revise the labeling instructions until they become consistent."</p>
+        <p>Notice what it does not say. It does not say "find the bad labeller" or "take the majority". The unit of repair is the instruction, and the unit of measurement is the class. A sample is enough, because the goal is to find which parts of the rule are ambiguous, not to relabel the whole set twice. The iguana example on the same deck shows how little it takes: the instruction "Use bounding boxes to indicate the position of iguanas" produces boxes that differ from labeller to labeller, and every one of them follows the instruction.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Inconsistent is not the same as wrong<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>An error is a label that contradicts the rule: a 3 labelled 8 when the guideline is clear that it is a 3. An inconsistency is two labels that each satisfy the rule, because the rule does not decide the case. You cannot call "Um... today's weather" wrong until someone has written down whether hesitations are transcribed and how. Before that, it is one of several defensible answers.</p>
+        <p>This matters for what you do next. Errors are fixed row by row, and session 3 builds a detector that finds them. Inconsistencies are fixed once, in the guideline, and then every affected row is relabelled against the new rule. Running an error detector on an inconsistent dataset flags rows whose label is "wrong" only relative to the model's guess at what the rule should have been.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why this is a spec problem, not a people problem<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>When two labellers disagree the tempting move is to rank them, retrain the weaker one or replace them. That treats the symptom. If two careful people read the same instruction and diverge, the instruction admits both readings, and a third careful person will diverge too, in a direction you cannot predict. Replacing people does not remove the ambiguity; it only changes which reading wins this month.</p>
+        <p>Treat the guideline the way an engineering team treats an API contract. It has a version number. Every class has a definition, a list of edge cases with a ruling for each, and examples of both sides of every boundary. A disagreement is a bug report against the contract. The fix is a new version, and rows labelled under the old version are marked so they can be rechecked. Session 6 writes that version into the data-edit spec, so the guideline outlives the team that wrote it.</p>
+        <p>People problems do exist. The careless labeller C in tonight's build-along is one. But you can only tell a careless person from an ambiguous rule once the rule is clear enough that careful people agree on it, which is why the rule comes first. The disputed rows themselves usually come out of error analysis, which <a href="https://phoebefu6.github.io/learn-ml-strategy-with-phoebe/courses/p3-error-analysis-spreadsheet.html">ML Strategy p3 ↗</a> covers.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Steel class 23 of 39.</strong> Ng's steel inspection project has 39 defect classes, and the slide he uses for label consistency picks one: "Class 23: Foreign particle defect". It is one class in 39, and the slide uses it to show labels for the same kind of defect coming back inconsistent. The point of picking one class is the point of the protocol: the repair is not a better detector for class 23 but a sharper definition of what class 23 is, followed by relabelling against it.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers measuring agreement</span>
+      <h2>Agreement beyond percent the same</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">The first number anyone computes is raw agreement: the share of rows where the two labels match. It is the right place to start and the wrong place to stop, because two people guessing at random would still agree some of the time. Cohen's kappa, from 1960, subtracts that chance agreement out: kappa = (p_o - p_e) / (1 - p_e), where p_o is the observed agreement and p_e is the agreement you would expect if each labeller kept their own label frequencies but assigned them independently of the image. Kappa of 1 is perfect agreement, 0 is no better than chance.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 356" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Horizontal bars, one per digit, showing how often constructed labeller B matched constructed labeller A, grouped by A's label. Digits 0, 2, 5 and 6 are at 100 percent. The six look-alike digits are lower and drawn in rust: 1 at 71 percent, 3 at 71, 4 at 67, 7 at 76, 8 at 77 and 9 at 72. A callout box on the right reads: A and B agree on 670 rows, 68 of them wrong together.">
+        <defs>
+          <filter id="s2bSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="24" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s2bHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#A63F1C" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s2bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s2bH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s2bL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s2bS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s2bB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s2bV { font: 800 18px Inter, sans-serif; fill: #3D4A1C; }
+          .s2bA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s2bN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s2bH" x="30" y="26">B AGREES WITH A, BY A'S LABEL</text>
+        <text class="s2bS" x="30" y="44">constructed labellers on the real 800 images · rust hatching = a look-alike digit the guideline leaves open</text>
+
+        <g filter="url(#s2bSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M610 56 L610 300" stroke="#CCD3BC" stroke-dasharray="4 4"/>
+          <rect x="110" y="60" width="500" height="16" rx="3" fill="#F1F4E6"/>
+          <rect x="110" y="84" width="355" height="16" rx="3" fill="url(#s2bHc)" stroke="#A63F1C"/>
+          <rect x="110" y="108" width="500" height="16" rx="3" fill="#F1F4E6"/>
+          <rect x="110" y="132" width="355" height="16" rx="3" fill="url(#s2bHc)" stroke="#A63F1C"/>
+          <rect x="110" y="156" width="335" height="16" rx="3" fill="url(#s2bHc)" stroke="#A63F1C"/>
+          <rect x="110" y="180" width="500" height="16" rx="3" fill="#F1F4E6"/>
+          <rect x="110" y="204" width="500" height="16" rx="3" fill="#F1F4E6"/>
+          <rect x="110" y="228" width="380" height="16" rx="3" fill="url(#s2bHc)" stroke="#A63F1C"/>
+          <rect x="110" y="252" width="385" height="16" rx="3" fill="url(#s2bHc)" stroke="#A63F1C"/>
+          <rect x="110" y="276" width="360" height="16" rx="3" fill="url(#s2bHc)" stroke="#A63F1C"/>
+          <!-- the trap callout -->
+          <rect x="690" y="90" width="160" height="120" rx="8" transform="rotate(-1 770 150)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <!-- two-heads doodle: two circles sharing one line -->
+          <path d="M718 238 m-10 0 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M748 238 m-10 0 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M704 262 L762 262" stroke="#545B44"/>
+        </g>
+
+        <text class="s2bL" x="96" y="73" text-anchor="end">0</text>
+        <text class="s2bL" x="96" y="97" text-anchor="end">1</text>
+        <text class="s2bL" x="96" y="121" text-anchor="end">2</text>
+        <text class="s2bL" x="96" y="145" text-anchor="end">3</text>
+        <text class="s2bL" x="96" y="169" text-anchor="end">4</text>
+        <text class="s2bL" x="96" y="193" text-anchor="end">5</text>
+        <text class="s2bL" x="96" y="217" text-anchor="end">6</text>
+        <text class="s2bL" x="96" y="241" text-anchor="end">7</text>
+        <text class="s2bL" x="96" y="265" text-anchor="end">8</text>
+        <text class="s2bL" x="96" y="289" text-anchor="end">9</text>
+        <text class="s2bS" x="620" y="73">100%</text>
+        <text class="s2bB" x="475" y="97">71% · 1 vs 7</text>
+        <text class="s2bS" x="620" y="121">100%</text>
+        <text class="s2bB" x="475" y="145">71% · 3 vs 8</text>
+        <text class="s2bB" x="455" y="169">67% · 4 vs 9</text>
+        <text class="s2bS" x="620" y="193">100%</text>
+        <text class="s2bS" x="620" y="217">100%</text>
+        <text class="s2bB" x="500" y="241">76% · 7 vs 1</text>
+        <text class="s2bB" x="505" y="265">77% · 8 vs 3</text>
+        <text class="s2bB" x="480" y="289">72% · 9 vs 4</text>
+        <text class="s2bL" x="706" y="114">A and B agree on</text>
+        <text class="s2bV" x="706" y="142">670 rows</text>
+        <text class="s2bB" x="706" y="166">68 wrong together</text>
+        <text class="s2bS" x="706" y="190">same rule, same slips</text>
+        <text class="s2bA" x="110" y="316">share of A's label that B matched, 0 to 100 percent</text>
+
+        <text class="s2bN" x="30" y="340">Kappa for the pair is 0.819 on 83.8% raw agreement; every disagreement sits in the six rust digits.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the per-class table tells you which rule to rewrite; the box on the right is why a high kappa still is not a quality score</figcaption>
+    </figure>
+
+    <p>Tonight's numbers, from the build-along on the real 800 training images with constructed labellers. A is session 1's declared plant. B works from the same guideline and makes the same look-alike confusions, drawn independently. C is careless: a fifth of C's labels are replaced by a random digit.</p>
+    <table class="clean">
+      <tr><th>Pair</th><th>Raw agreement p_o</th><th>Chance p_e</th><th>Cohen's kappa</th></tr>
+      <tr><td>A and B (same guideline, same confusions)</td><td>83.8%</td><td>10.1%</td><td><strong>0.819</strong></td></tr>
+      <tr><td>A and C (C is careless)</td><td>67.6%</td><td>10.0%</td><td><strong>0.640</strong></td></tr>
+    </table>
+    <p>With ten nearly balanced classes, chance agreement is only about 10 percent, so kappa sits close to raw agreement. That is not always true, and the self-study card below says when it breaks.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why kappa is not a quality score<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Look at the pair with the higher kappa. A and B agree on 670 of the 800 rows, and 68 of those 670 are wrong together: both labellers wrote the same wrong digit. That is not bad luck. They share a guideline, so they share its blind spots; a 7 without a clear top bar looks like a 1 to both of them for the same reason. Kappa compares the labellers with each other and never with the truth, so a shared confusion raises it.</p>
+        <p>So kappa measures consistency, and consistency is the thing Ng's protocol asks for, which makes it the right tool for finding ambiguous classes. It is the wrong tool for certifying a dataset. A high kappa on a class tells you the rule is being read the same way; it does not tell you the rule is right. For that you need either a ground truth sample checked by someone who knows the domain, or a detector that looks at the images, which is session 3.</p>
+        <p>The per-digit table points at where to start. Every disagreement between A and B falls on one of the three look-alike pairs:</p>
+        <table class="clean">
+          <tr><th>A's label</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th></tr>
+          <tr><td>B agrees</td><td>100%</td><td>71%</td><td>100%</td><td>71%</td><td>67%</td><td>100%</td><td>100%</td><td>76%</td><td>77%</td><td>72%</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Kappa's own known limits<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Three limits are standard in the measurement literature, and each one shows up in real labelling projects.</p>
+        <p><strong>Prevalence.</strong> Chance agreement p_e is computed from each labeller's label frequencies. When one class dominates, say most rows are "no defect", both labellers use that label most of the time, so p_e is high, and even a high raw agreement can produce a modest kappa. The same labelling quality gives different kappas on datasets with different class balance, so a kappa from one project does not transfer to another.</p>
+        <p><strong>Few classes.</strong> With two classes, chance agreement is 50 percent when both labellers use the two labels equally often, and higher when one label dominates, so the gap between raw agreement and kappa is large. With ten balanced classes, as tonight, it is small. Compare kappas only between tasks with the same number of classes and similar balance.</p>
+        <p><strong>It is one number for all classes.</strong> A kappa of 0.8 can hide one class at perfect agreement and another near chance. Always report the per-class table alongside it. Cohen's kappa is also defined for exactly two labellers; for more, extensions such as Fleiss' kappa exist, with the same caveats. Published verbal scales ("substantial", "almost perfect") are conventions, not measurements, so set your own threshold per class from what a disagreement costs.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Systematic, not random.</strong> When Northcutt, Athalye and Mueller had crowd workers check the label errors in ten benchmark test sets, they found the errors were "primarily systematic mislabeling, not just random noise". Systematic errors are exactly the kind two labellers share, which is why a benchmark can have good inter-annotator agreement and still carry thousands of wrong labels.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers consensus labelling</span>
+      <h2>Three labels, one answer</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">When each row carries more than one label, something has to turn them into one. The default is majority vote, and the MIT data-centric AI notes on dataset creation name its two flaws in two lines: "Resolving ties is ambiguous in majority vote", and "A bad annotator and good annotator have equal impact". Everything more sophisticated exists to fix one of those two sentences.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 342" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three routes from the same pile of 800 rows labelled by A, with 133 wrong labels and a frozen-model score of 457 of 500. Route one, more labellers: A, B and C vote, costing three labels on every row, 2,400 in all; result 483 of 500 with 82 wrong labels left. Route two, drawn in rust, a better guideline: the 1 and 7 rule, costing one rewrite and a recheck of the 1s and 7s; result 472 of 500 with 48 rows fixed, a constructed effect. Route three, adjudication: an expert on the 130 rows where A and B split; not computed, and it never sees the 68 rows wrong together.">
+        <defs>
+          <filter id="s2cSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="36" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s2cHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s2cAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s2cH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s2cL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s2cS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s2cB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s2cV { font: 800 18px Inter, sans-serif; fill: #3D4A1C; }
+          .s2cW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s2cN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s2cH" x="30" y="26">THREE WAYS OUT OF A DISAGREEMENT, AND WHAT EACH COSTS PER ROW</text>
+
+        <g filter="url(#s2cSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- the pile -->
+          <rect x="30" y="126" width="170" height="96" rx="8" transform="rotate(-0.8 115 174)" fill="url(#s2cHc)"/>
+          <!-- three route cards -->
+          <rect x="270" y="50" width="300" height="72" rx="8" transform="rotate(-0.6 420 86)" fill="#F1F4E6"/>
+          <rect x="270" y="140" width="300" height="72" rx="8" transform="rotate(0.5 420 176)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="270" y="230" width="300" height="72" rx="8" transform="rotate(-0.4 420 266)" fill="#FFFFFF"/>
+          <path d="M204 160 C230 120 240 96 264 88" marker-end="url(#s2cAr)"/>
+          <path d="M206 174 L264 176" marker-end="url(#s2cAr)"/>
+          <path d="M204 190 C230 230 240 256 264 264" marker-end="url(#s2cAr)"/>
+          <!-- three results -->
+          <rect x="610" y="50" width="240" height="72" rx="8" transform="rotate(0.6 730 86)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <rect x="610" y="140" width="240" height="72" rx="8" transform="rotate(-0.5 730 176)" fill="#FFFFFF" stroke="#A63F1C"/>
+          <rect x="610" y="230" width="240" height="72" rx="8" transform="rotate(0.4 730 266)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <path d="M574 86 L604 86" marker-end="url(#s2cAr)"/>
+          <path d="M574 176 L604 176" marker-end="url(#s2cAr)"/>
+          <path d="M574 266 L604 266" marker-end="url(#s2cAr)"/>
+          <!-- coin-stack doodle on the per-row cost -->
+          <path d="M536 60 a10 4 0 1 0 20 0 a10 4 0 1 0 -20 0 M536 60 L536 68 a10 4 0 0 0 20 0 L556 60 M536 68 L536 76 a10 4 0 0 0 20 0 L556 68" stroke="#545B44"/>
+        </g>
+
+        <text class="s2cL" x="46" y="156">800 rows, labeller A</text>
+        <text class="s2cB" x="46" y="176">133 wrong labels</text>
+        <text class="s2cS" x="46" y="196">model: 457 of 500</text>
+        <text class="s2cL" x="286" y="80">More labellers: A, B, C vote</text>
+        <text class="s2cS" x="286" y="100">cost: 3 labels on every row, 2,400 in all</text>
+        <text class="s2cW" x="286" y="170">Better guideline: the 1/7 rule</text>
+        <text class="s2cW" x="286" y="190">cost: one rewrite, recheck 1s and 7s</text>
+        <text class="s2cL" x="286" y="260">Adjudicate the disagreements</text>
+        <text class="s2cS" x="286" y="280">cost: an expert on the 130 A-B splits</text>
+        <text class="s2cV" x="626" y="82">483 of 500</text>
+        <text class="s2cS" x="626" y="102">82 wrong labels left</text>
+        <text class="s2cV" x="626" y="172">472 of 500</text>
+        <text class="s2cS" x="626" y="192">48 rows fixed, constructed</text>
+        <text class="s2cL" x="626" y="262">not computed</text>
+        <text class="s2cB" x="626" y="282">misses the 68 wrong together</text>
+
+        <text class="s2cN" x="30" y="328">The vote scores highest but pays three labels on every row; the rule fixes one pair for one rewrite.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - a vote buys accuracy by the row, a rule buys it by the class; adjudication only reaches rows where people already disagree</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Majority vote, and the two sentences that break it<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Tonight's three constructed labellers vote on each of the 800 rows. The majority label is right on 89.8 percent of them, and it leaves 82 wrong labels against 133 for A alone. Trained on the vote, the frozen model scores 483 of 500, against 457 on A's labels. That is a real gain, and it costs three labels on every row.</p>
+        <p>Both flaws show up in the same run. On 25 rows all three labellers wrote a different digit, a three-way split with no majority; the build-along falls back to A's label and says so, which is a choice, not a rule. And C, who guesses on a fifth of rows, gets exactly the same vote as A and B. Where A and B share a confusion, C's occasional correct answer is outvoted two to one, which is how the 68 rows wrong together survive the vote.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Weighting annotators: Dawid-Skene and CROWDLAB<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The MIT notes describe the step beyond the vote. First, estimate each annotator's quality as their agreement with the consensus, then let better annotators count for more. The classic model for this is Dawid-Skene, which learns a full confusion matrix per annotator: not just "C is wrong 20 percent of the time" but "B writes 1 when the truth is 7". The notes also give its limit: it cannot give a reliable consensus for rows labelled by only one annotator, which in practice is most rows of most datasets.</p>
+        <p>CROWDLAB closes that gap by adding a model. It combines any classifier's predicted probabilities with the annotations, so a singly labelled row still gets a second opinion from the model, and multiply labelled rows get the annotators weighted by how reliable they have proved. Neither is computed here; both are named so you recognise them when a vendor quotes them. Note what neither can do: if every annotator shares the same confusion, weighting them differently does not recover the truth.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Rewrite the rule, or add a labeller?<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The build-along runs a constructed experiment: suppose a revised rule, "a 7 has a top bar, a 1 is a single stroke", ends the 1 and 7 confusion and nothing else. It fixes 48 rows of A's labels, and the frozen model goes from 457 to 472. The vote got to 483, higher, but it paid for two more complete passes over all 800 rows. The rule fixed one of three confused pairs with one rewrite and a recheck of the 1s and 7s; rules for 3/8 and 4/9 are the obvious next edits. The effect of the rule is constructed, the images and the model scores are real.</p>
+        <p>Sheng, Provost and Ipeirotis (2008), "Get Another Label?", study when repeated labelling improves label quality and model quality. As reported from the paper's abstract, the answer is that it pays under conditions rather than always; read the paper before budgeting a second or third pass. The order that follows from tonight is Ng's: measure agreement on a sample, rewrite the rule where it breaks, and pay for extra labels only on the classes that stay inconsistent after the rewrite.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Five workers, three must agree.</strong> The labelerrors.com study used consensus as a verification step rather than a labelling step. Each item flagged by the algorithm was shown to five Mechanical Turk workers, and it counted as a label error if fewer than 3 of the 5 agreed with the given label. Consensus was spent only on the rows a detector had already flagged, which is where it buys the most, and the authors still note the corrected labels "are not 100% perfect".</p>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>What to ask for, if you lead the team.</strong> Before paying for a second labelling pass, ask for two things: the agreement matrix per class from two independent labellers on a sample, and the version number of the guideline they worked from. If the disagreement sits in a few classes, the next spend is a rule rewrite for those classes, not another pass over every row.</p>
+    </div>
+  </section>
+
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Three labellers, one vote, one better rule</h2>
+      <span class="tag demo">★ 22 min · everyone builds</span>
+    </div>
+    <p class="lede">Six steps in numpy on the same 800 real training images as session 1. The three labellers are constructed and declared, so every accuracy figure can be checked against the true digit. Every number printed below is what the code produces.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 366" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four real training rows drawn from their pixels, each with its true digit, the labels from constructed labellers A, B and C, and the majority vote. Row 5, a 7: A 1, B 1, C 7, vote 1, A and B wrong together so the vote keeps the error. Row 25, a 1: A 7, B 7, C 1, vote 7, the same. Row 24, a 4: A 9, B 4, C 4, vote 4, the vote fixes A. Row 28, a 7: A 1, B 7, C 6, a three-way split that falls back to A, wrong. Over all 800 rows the vote is 89.8 percent correct.">
+        <defs>
+          <filter id="s2dSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="47" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s2dHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s2dAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s2dH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s2dL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s2dS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s2dB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s2dV { font: 800 16px Inter, sans-serif; fill: #3D4A1C; }
+          .s2dW { font: 800 16px Inter, sans-serif; fill: #FFFFFF; }
+          .s2dA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s2dN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s2dH" x="30" y="26">FOUR REAL ROWS OF THE 800, THREE CONSTRUCTED LABELLERS, ONE VOTE</text>
+        <text class="s2dA" x="70" y="58" text-anchor="middle">real image</text>
+        <text class="s2dA" x="170" y="58" text-anchor="middle">true</text>
+        <text class="s2dA" x="240" y="58" text-anchor="middle">A</text>
+        <text class="s2dA" x="300" y="58" text-anchor="middle">B</text>
+        <text class="s2dA" x="360" y="58" text-anchor="middle">C</text>
+        <text class="s2dA" x="430" y="58" text-anchor="middle">vote</text>
+        <text class="s2dA" x="510" y="58">what happened</text>
+
+        <g filter="url(#s2dSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- ballot-box doodle beside the vote header -->
+          <rect x="452" y="46" width="20" height="14" rx="2" stroke="#545B44"/>
+          <path d="M457 50 L467 50" stroke="#545B44"/>
+          <!-- image frames -->
+          <rect x="42" y="70" width="56" height="56" rx="4" transform="rotate(-1 70 98)" fill="#FFFFFF"/>
+          <rect x="42" y="138" width="56" height="56" rx="4" transform="rotate(1 70 166)" fill="#FFFFFF"/>
+          <rect x="42" y="206" width="56" height="56" rx="4" transform="rotate(-0.8 70 234)" fill="#FFFFFF"/>
+          <rect x="42" y="274" width="56" height="56" rx="4" transform="rotate(0.8 70 302)" fill="#FFFFFF"/>
+          <!-- row 5 -->
+          <rect x="150" y="81" width="40" height="34" rx="5" fill="#F1F4E6"/>
+          <rect x="220" y="81" width="40" height="34" rx="5" transform="rotate(1.5 240 98)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="280" y="81" width="40" height="34" rx="5" transform="rotate(-1.5 300 98)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="340" y="81" width="40" height="34" rx="5" transform="rotate(1 360 98)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="410" y="81" width="40" height="34" rx="5" transform="rotate(-1 430 98)" fill="#A63F1C" stroke="#A63F1C"/>
+          <!-- row 25 -->
+          <rect x="150" y="149" width="40" height="34" rx="5" fill="#F1F4E6"/>
+          <rect x="220" y="149" width="40" height="34" rx="5" transform="rotate(-1 240 166)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="280" y="149" width="40" height="34" rx="5" transform="rotate(1.2 300 166)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="340" y="149" width="40" height="34" rx="5" transform="rotate(-1 360 166)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="410" y="149" width="40" height="34" rx="5" transform="rotate(1 430 166)" fill="#A63F1C" stroke="#A63F1C"/>
+          <!-- row 24 -->
+          <rect x="150" y="217" width="40" height="34" rx="5" fill="#F1F4E6"/>
+          <rect x="220" y="217" width="40" height="34" rx="5" transform="rotate(1 240 234)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="280" y="217" width="40" height="34" rx="5" transform="rotate(-1 300 234)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="340" y="217" width="40" height="34" rx="5" transform="rotate(1.5 360 234)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="410" y="217" width="40" height="34" rx="5" transform="rotate(-1 430 234)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <!-- row 28 -->
+          <rect x="150" y="285" width="40" height="34" rx="5" fill="#F1F4E6"/>
+          <rect x="220" y="285" width="40" height="34" rx="5" transform="rotate(-1.2 240 302)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="280" y="285" width="40" height="34" rx="5" transform="rotate(1 300 302)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="340" y="285" width="40" height="34" rx="5" transform="rotate(-1 360 302)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <rect x="410" y="285" width="40" height="34" rx="5" transform="rotate(1.2 430 302)" fill="#A63F1C" stroke="#A63F1C"/>
+        </g>
+        <g stroke="none"><path d="M58 92h6v6h-6zM58 104h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M82 104h6v6h-6zM70 116h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M58 116h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M58 74h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M58 80h6v6h-6zM64 92h6v6h-6zM82 98h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M76 74h6v6h-6zM70 110h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M76 92h6v6h-6zM58 98h6v6h-6zM76 104h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M64 80h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M70 86h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M76 80h6v6h-6zM64 104h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M76 86h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M70 80h6v6h-6zM70 92h6v6h-6zM64 110h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M70 104h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M76 98h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M64 74h6v6h-6zM70 74h6v6h-6zM64 98h6v6h-6zM70 98h6v6h-6zM64 116h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M76 148h6v6h-6zM76 172h6v6h-6zM76 178h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M76 160h6v6h-6zM76 166h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M70 142h6v6h-6zM64 166h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M64 160h6v6h-6zM64 172h6v6h-6zM64 184h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M64 142h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M64 154h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M64 148h6v6h-6zM64 178h6v6h-6zM70 184h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M70 148h6v6h-6zM70 154h6v6h-6zM70 160h6v6h-6zM70 166h6v6h-6zM70 172h6v6h-6zM70 178h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M70 210h6v6h-6zM82 234h6v6h-6zM58 246h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M52 222h6v6h-6zM70 252h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M58 240h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M58 210h6v6h-6zM82 222h6v6h-6zM58 252h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M76 222h6v6h-6zM64 228h6v6h-6zM76 240h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M52 234h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M64 222h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M52 228h6v6h-6zM82 228h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M64 240h6v6h-6zM70 246h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M58 216h6v6h-6zM64 216h6v6h-6zM70 228h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M64 246h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M58 222h6v6h-6zM76 234h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M64 210h6v6h-6zM58 228h6v6h-6zM76 228h6v6h-6zM58 234h6v6h-6zM64 234h6v6h-6zM70 234h6v6h-6zM70 240h6v6h-6zM64 252h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M82 290h6v6h-6zM52 296h6v6h-6zM76 302h6v6h-6zM52 314h6v6h-6zM64 320h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M52 278h6v6h-6zM76 290h6v6h-6zM52 320h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M64 314h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M58 284h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M70 278h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M70 290h6v6h-6zM70 302h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M58 296h6v6h-6zM64 308h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M70 284h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M82 296h6v6h-6zM52 302h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M64 284h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M64 290h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M70 296h6v6h-6zM58 308h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M58 278h6v6h-6zM64 302h6v6h-6zM58 320h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M64 278h6v6h-6zM64 296h6v6h-6zM76 296h6v6h-6zM58 302h6v6h-6zM58 314h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+
+        <text class="s2dS" x="108" y="102">row 5</text>
+        <text class="s2dV" x="170" y="104" text-anchor="middle">7</text>
+        <text class="s2dV" x="240" y="104" text-anchor="middle">1</text>
+        <text class="s2dV" x="300" y="104" text-anchor="middle">1</text>
+        <text class="s2dV" x="360" y="104" text-anchor="middle">7</text>
+        <text class="s2dW" x="430" y="104" text-anchor="middle">1</text>
+        <text class="s2dB" x="510" y="94">A and B wrong together;</text>
+        <text class="s2dS" x="510" y="110">C was right and got outvoted</text>
+
+        <text class="s2dS" x="108" y="170">row 25</text>
+        <text class="s2dV" x="170" y="172" text-anchor="middle">1</text>
+        <text class="s2dV" x="240" y="172" text-anchor="middle">7</text>
+        <text class="s2dV" x="300" y="172" text-anchor="middle">7</text>
+        <text class="s2dV" x="360" y="172" text-anchor="middle">1</text>
+        <text class="s2dW" x="430" y="172" text-anchor="middle">7</text>
+        <text class="s2dB" x="510" y="162">the same confusion the other way;</text>
+        <text class="s2dS" x="510" y="178">shared confusions survive the vote</text>
+
+        <text class="s2dS" x="108" y="238">row 24</text>
+        <text class="s2dV" x="170" y="240" text-anchor="middle">4</text>
+        <text class="s2dV" x="240" y="240" text-anchor="middle">9</text>
+        <text class="s2dV" x="300" y="240" text-anchor="middle">4</text>
+        <text class="s2dV" x="360" y="240" text-anchor="middle">4</text>
+        <text class="s2dV" x="430" y="240" text-anchor="middle">4</text>
+        <text class="s2dL" x="510" y="230">the vote fixes A</text>
+        <text class="s2dS" x="510" y="246">B and C each got it right on their own</text>
+
+        <text class="s2dS" x="108" y="306">row 28</text>
+        <text class="s2dV" x="170" y="308" text-anchor="middle">7</text>
+        <text class="s2dV" x="240" y="308" text-anchor="middle">1</text>
+        <text class="s2dV" x="300" y="308" text-anchor="middle">7</text>
+        <text class="s2dV" x="360" y="308" text-anchor="middle">6</text>
+        <text class="s2dW" x="430" y="308" text-anchor="middle">1</text>
+        <text class="s2dB" x="510" y="298">three-way split, no majority;</text>
+        <text class="s2dS" x="510" y="314">falls back to A, which is wrong</text>
+
+        <text class="s2dN" x="30" y="352">Over all 800: the vote is 89.8% correct, 82 wrong against 133 for A alone, with 25 three-way splits.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - rows 5, 25, 24 and 28 are real images drawn from their own 64 pixels; the labels are the ones s2.py prints for them</figcaption>
+    </figure>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Three labellers on the same 800 images.</strong> This continues from session 1's steps 1 to 4, which define X, y, train, test, PLANT, centre, g_train and score; run those first. Labeller A is session 1's declared plant. B reads the same guideline and makes the same look-alike confusions, drawn with its own seed. C is careless: a fifth of C's labels are replaced by a random digit. All three are constructed; the images are real.</p>
+        <div class="prompt-box good"><span class="label">★ Step 1 · three labellers</span>lab_A = g_train
+rng_B = np.random.default_rng(2)
+def plant_with(r, ids):
+    given = y[ids].copy()
+    for (a, b), rate in PLANT.items():
+        cand = np.array([i for i, t in enumerate(ids) if y[t] == a])
+        m = int(round(rate * len(cand)))
+        look = [((X[ids[i]] - centre[b]) ** 2).sum() - ((X[ids[i]] - centre[a]) ** 2).sum() for i in cand]
+        top = cand[np.argsort(look, kind="stable")][: int(np.ceil(2 * m))]
+        given[r.choice(top, m, replace=False)] = b
+    return given
+lab_B = plant_with(rng_B, train)
+rng_C = np.random.default_rng(3)
+lab_C = y[train].copy()
+careless = rng_C.random(800) &lt; 0.20
+lab_C[careless] = rng_C.integers(0, 10, careless.sum())
+truth = y[train]
+for name, L in (("A", lab_A), ("B", lab_B), ("C", lab_C)):
+    print(name, "accuracy against the true digit:", f"{100*(L == truth).mean():.1f}%")
+# A accuracy against the true digit: 83.4%
+# B accuracy against the true digit: 83.4%
+# C accuracy against the true digit: 80.5%</div>
+      </div>
+      <div class="step">
+        <p><strong>Raw agreement, chance agreement and kappa.</strong> Chance agreement is the sum over digits of the product of the two labellers' label frequencies: how often they would match if each kept their own habits but ignored the image. Kappa is the share of the remaining room that they actually closed.</p>
+        <div class="prompt-box good"><span class="label">★ Step 2 · agreement and kappa</span>def kappa(p, q):
+    po = (p == q).mean()
+    pe = sum((p == k).mean() * (q == k).mean() for k in range(10))
+    return po, pe, (po - pe) / (1 - pe)
+po, pe, k = kappa(lab_A, lab_B)
+print(f"A-B agreement {100*po:.1f}%, chance {100*pe:.1f}%, kappa {k:.3f}")
+po, pe, k = kappa(lab_A, lab_C)
+print(f"A-C agreement {100*po:.1f}%, chance {100*pe:.1f}%, kappa {k:.3f}")
+# A-B agreement 83.8%, chance 10.1%, kappa 0.819
+# A-C agreement 67.6%, chance 10.0%, kappa 0.640</div>
+      </div>
+      <div class="step">
+        <p><strong>Find where they disagree, class by class.</strong> Group the rows by A's label and ask how often B wrote the same thing. This is the table Ng's protocol runs on: the classes below 100 percent are the ones whose rule needs rewriting.</p>
+        <div class="prompt-box good"><span class="label">★ Step 3 · per-digit agreement</span>for d in range(10):
+    m = lab_A == d
+    print(d, f"{100*(lab_B[m] == d).mean():.0f}%", end="  ")
+print()
+# 0 100%  1 71%  2 100%  3 71%  4 67%  5 100%  6 100%  7 76%  8 77%  9 72%</div>
+      </div>
+      <div class="step">
+        <p><strong>Check agreement against the truth.</strong> This step is only possible because the labellers are constructed and the true digits are known. On your own data you would need a checked sample. Count the rows where A and B agree, and how many of those they got wrong together.</p>
+        <div class="prompt-box good"><span class="label">★ Step 4 · agreement is not correctness</span>both = lab_A == lab_B
+print("A and B agree on", int(both.sum()), "rows; of those,", int((both &amp; (lab_A != truth)).sum()), "are wrong together")
+# A and B agree on 670 rows; of those, 68 are wrong together</div>
+      </div>
+      <div class="step">
+        <p><strong>Take the majority vote, and handle the ties out loud.</strong> Where all three labellers wrote a different digit there is no majority. The code falls back to A and counts how often that happens, so the choice is visible in the output instead of buried in an argmax.</p>
+        <div class="prompt-box good"><span class="label">★ Step 5 · majority vote</span>votes = np.stack([lab_A, lab_B, lab_C], axis=1)
+maj, ties = [], 0
+for row in votes:
+    c = np.bincount(row, minlength=10)
+    if c.max() == 1:
+        ties += 1
+        maj.append(row[0])          # no majority: fall back to A, and say so
+    else:
+        maj.append(int(c.argmax()))
+maj = np.array(maj)
+print("majority vote accuracy:", f"{100*(maj == truth).mean():.1f}%", "| three-way splits:", ties)
+print("majority vote wrong labels:", int((maj != truth).sum()), "| A alone:", int((lab_A != truth).sum()))
+# majority vote accuracy: 89.8% | three-way splits: 25
+# majority vote wrong labels: 82 | A alone: 133</div>
+      </div>
+      <div class="step">
+        <p><strong>Rewrite the rule for the worst pair, then score everything on the frozen model.</strong> The rewrite is a constructed effect: we suppose the new rule "a 7 has a top bar, a 1 is a single stroke" ends the 1 and 7 confusion and touches nothing else. Then the same frozen kNN from session 1 is trained on three label sets and scored on the same 500 untouched test digits.</p>
+        <div class="prompt-box good"><span class="label">★ Step 6 · the guideline rewrite and the model scores</span>fixed = lab_A.copy()
+pair = ((truth == 1) &amp; (lab_A == 7)) | ((truth == 7) &amp; (lab_A == 1))
+fixed[pair] = truth[pair]
+print("1/7 rows fixed by the new rule:", int(pair.sum()))
+print("model on A:", score(X[train], lab_A), "| on A with the 1/7 rule:", score(X[train], fixed), "| on majority vote:", score(X[train], maj), "of 500")
+# 1/7 rows fixed by the new rule: 48
+# model on A: 457 | on A with the 1/7 rule: 472 | on majority vote: 483 of 500</div>
+      </div>
+    </div>
+
+    <table class="clean" style="margin-top:1.2rem">
+      <tr><th>Same frozen model, same 500 test digits</th><th>Labels per row</th><th>Wrong training labels</th><th>Correct</th></tr>
+      <tr><td>Labeller A alone (the declared plant)</td><td>1</td><td>133</td><td><strong>457</strong></td></tr>
+      <tr><td>A with the 1/7 rule rewritten (constructed effect)</td><td>1, plus a recheck of one pair</td><td>85</td><td><strong>472</strong></td></tr>
+      <tr><td>Majority vote of A, B and C</td><td>3</td><td>82</td><td><strong>483</strong></td></tr>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Read the middle row as a first step, not a final answer.</strong> One rule for one of three confused pairs bought 15 test digits for a fraction of the labelling cost the vote needed for 26. The same rewrite for 3/8 and 4/9 is the next edit, and the vote still carries the 68 rows A and B got wrong together, which only a rule change or a detector can reach. On one seed a difference of a digit or two is noise, one test digit being 0.2 points; the gaps here are large enough to read, but not to rank the two routes to the decimal.</p>
+    </div>
+  </section>
+
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 3</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li><strong>Compute kappa for two real people.</strong> Take 50 rows of your own data, have two colleagues label them independently from the current guideline, and run step 2's kappa function on their two columns. Write down raw agreement, chance agreement and kappa.</li>
+      <li><strong>Find the class with the lowest agreement</strong> using step 3, and write its rule: a definition, the edge cases with a ruling for each, and one example on each side of every boundary it shares with a neighbour class.</li>
+      <li><strong>Price the two routes.</strong> Estimate the cost of a third label on every row against the cost of the rule rewrite plus a recheck of the affected classes. Which would you fund first, and what agreement number would make you change your mind?</li>
+      <li><strong>Bring your team's flagged rows list.</strong> Session 3 finds wrong labels with a detector; a list of rows your team already suspects is the best way to see what it catches and what it misses.</li>
+    </ol>
+  </section>
+
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <p>Clear all three and session 2 gets stamped in your passport.</p>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · Labellers A and B have a Cohen's kappa of 0.819, yet 68 of the 670 rows they agree on are wrong together. What does kappa measure?</p>
+      <button class="qopt" type="button">A · The share of labels that are correct, corrected for chance</button>
+      <button class="qopt" type="button">B · How consistently the two labellers read the rule, beyond chance; it compares them with each other, never with the truth, so a confusion they share from the same guideline raises it</button>
+      <button class="qopt" type="button">C · The accuracy the frozen model will reach when trained on either labeller</button>
+      <button class="qopt" type="button">D · Nothing useful, because 83.8 percent raw agreement already says the same thing</button>
+      <p class="qwhy">Kappa is a consistency measure, which is exactly what Ng's protocol needs for finding ambiguous classes. It cannot certify correctness: two labellers trained on the same guideline share its blind spots, and their shared wrong labels count as agreement.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="3">
+      <p class="qtext">2 · Three labellers vote, and one of them guesses at random on a fifth of the rows. Why do methods such as Dawid-Skene and CROWDLAB weight annotators instead of counting votes?</p>
+      <button class="qopt" type="button">A · Because majority vote needs an odd number of labellers and weighting does not</button>
+      <button class="qopt" type="button">B · Because weighted methods remove the need for a labelling guideline</button>
+      <button class="qopt" type="button">C · Because a careless labeller always loses the vote anyway, so weighting only speeds it up</button>
+      <button class="qopt" type="button">D · Because in a plain vote a bad annotator and a good annotator have equal impact, and ties have no principled resolution; estimating each annotator's reliability, per class in Dawid-Skene or with a model's probabilities in CROWDLAB, lets the reliable ones count for more</button>
+      <p class="qwhy">The MIT notes name both flaws: ties are ambiguous and every annotator counts the same. Tonight's vote had 25 three-way splits and fell back to A on each. Weighting fixes the equal-impact flaw, but no weighting recovers the truth when every annotator shares the same confusion.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · Your two labellers agree above 95 percent on every class except two look-alike classes, where they sit near 70 percent. Following Ng's protocol, what is the next move?</p>
+      <button class="qopt" type="button">A · Revise the labelling instructions for those two classes, relabel their rows against the new rule, and measure agreement again until it is consistent</button>
+      <button class="qopt" type="button">B · Add a third labeller to every row and take the majority vote</button>
+      <button class="qopt" type="button">C · Replace the labeller with the lower accuracy</button>
+      <button class="qopt" type="button">D · Drop both classes from the training set</button>
+      <p class="qwhy">Ng's slide: "For classes where the labelers disagree, revise the labeling instructions until they become consistent." Disagreement concentrated in a few classes is a spec problem. Tonight the rule rewrite for one pair bought 457 to 472 with one rewrite; the vote bought 483 but cost three labels on every row.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng, "MLOps: From Model-centric to Data-centric AI" (2021)</span><span class="note">The speech transcription and iguana examples, steel class 23 of 39, and the two-labeller protocol, read from the slide deck</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">MIT, Introduction to Data-Centric AI, dataset creation and curation</span><span class="note">Majority vote and its two flaws, annotator quality as agreement with consensus, Dawid-Skene and CROWDLAB, read from the lecture notes</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Northcutt, Athalye, Mueller (2021), label errors in test sets</span><span class="note">Five MTurk workers per flagged item, an error if fewer than 3 of 5 agree, and errors that are mostly systematic, read from the NeurIPS paper</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Cohen (1960), a coefficient of agreement for nominal scales</span><span class="note">The standard kappa formula, (p_o - p_e) / (1 - p_e), computed by hand in step 2</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Sheng, Provost, Ipeirotis (2008), "Get Another Label?"</span><span class="note">Reported: repeated labelling pays under conditions; known from the abstract, not read in full</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">The three labellers A, B and C</span><span class="note">Constructed on the real 800 UCI digit images; every agreement, vote and model score computed by s2.py</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Every fact on this page, and its verification tier, is recorded in the course's source map.</p>
+  </section>
+
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 2 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The protocol</b><span>Two independent labellers on a sample, measure where they disagree, revise the rule for those classes.</span></div>
+      <div class="cheat-item"><b>Kappa</b><span>(p_o - p_e) / (1 - p_e). Report it with the per-class table, never alone.</span></div>
+      <div class="cheat-item"><b>Agreement is not correctness</b><span>670 agreed, 68 wrong together. A shared guideline shares its confusions.</span></div>
+      <div class="cheat-item"><b>Majority vote's two flaws</b><span>Ties have no principled answer; a bad and a good annotator count the same.</span></div>
+      <div class="cheat-item"><b>The 3-of-5 rule</b><span>Five workers per flagged item; an error if fewer than 3 agree with the given label.</span></div>
+      <div class="cheat-item"><b>Rule before people</b><span>Rewrite the guideline for the disputed classes before paying for another labelling pass.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>With a clear rule, a label that breaks it is simply wrong, and the job becomes finding those rows without reading all 800. Session 3 builds confident learning by hand: out-of-sample probabilities, a threshold per class, and a grid of counts that says which given labels the model confidently disagrees with. Bring your team's flagged rows list.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 2 of 6 · learn-data-centric-ai-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="01-hold-the-model-fix-the-data.html">← Prev: Hold the model, fix the data</a> &nbsp;·&nbsp; <a href="03-finding-the-wrong-labels.html">Next: Finding the wrong labels →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=3"></script>
+</body>
+</html>

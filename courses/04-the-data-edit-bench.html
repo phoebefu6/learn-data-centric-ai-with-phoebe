@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 4 of 6. One frozen model, 1,797 real handwritten digits, a declared label-noise plant, and eight data edits computed in your browser. Confident learning takes the model from 91.4 to 95.8 percent; 497 more rows from the same labellers take it to 90.8.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="The data-edit bench - learn data-centric ai with phoebe">
+<meta property="og:description" content="Session 4 of 6. Same model, same clean test set, eight data edits. Two counters: test accuracy, and how many of the 133 planted errors the detector actually found.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/courses/04-the-data-edit-bench.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The data-edit bench - learn data-centric ai with phoebe">
+<meta name="twitter:description" content="Session 4 of 6. Eight data edits on real digits, a frozen kNN, every flag computed live.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 4 · The data-edit bench - learn data-centric ai with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=3">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-centric-ai-with-phoebe</a> / Session 4 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data-Centric AI with Phoebe · Session 4 of 6</div>
+    <h1>The data-edit <span class="accent">bench</span></h1>
+    <p class="sub">Sessions 1 to 3 built the pieces: a frozen model, a locked test set, a declared noise plant, and a detector that finds wrong labels without reading every row. Tonight they meet on one bench, computed in your browser. Eight data edits, each scored on the same 500 clean test digits by the same k-nearest-neighbour model, and each reported with two counters: the test accuracy, and how many of the 133 planted errors the detector actually found. One edit is the one every stalled project asks for, and it makes things worse. One is a leak that looks like rigour.</p>
+    <div class="chip-row">
+      <span class="chip level">🔴 Bench night</span>
+      <span class="chip audience">Bring your session 3 flags</span>
+      <span class="chip audience">No code tonight, all clicking</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:3">3-14 · How to read the bench</span>
+      <span class="a3" style="flex:6">14-40 · The eight edits, in order</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we start</h2>
+    </div>
+    <p class="lede">A bench holds everything still except the thing being tested. Here the model is frozen, the 500 test digits are frozen, and the only thing that moves is the training data: which rows are in it, and what they are labelled. The data are real, all 1,797 images of the UCI handwritten digits. The noise is not: it is a plant, declared in full, which is the one thing that lets the bench count how many wrong labels a detector found. On your own data you never get that column, and the second half of tonight is about what to do instead.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">measured = computed from the rows and the frozen model</span>
+      <span class="pill">planted = countable only because the noise is declared</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> The measured cost of each data edit on one frozen model, the habit of reading accuracy and detector recall side by side, the reason more data from the same labellers bought nothing, and the leak that makes a detector look precise while it finds a third of what it should.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers what the bench measures</span>
+      <h2>Two counters, one frozen model</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">Every readout carries a tag. <strong>measured</strong> numbers come from running the frozen model on the edited training rows and scoring it on the test digits; they would be the same in any language, and a Python reference reproduces them to the last test image. <strong>planted</strong> numbers compare the training labels against the declared plant; they exist only because the bench knows which 133 labels it corrupted.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The bench as a machine. On the left a hatched pile of 800 training rows passes through a rack of edit switches: remove or relabel flagged rows, drop ambiguous rows, shift the weakest digit, add 497 more, and a red leak switch. The edited rows feed a frozen kNN box, which is scored on a locked box of 500 test digits, giving the measured counter. A separate dashed path compares the edited labels against the declared plant, giving the planted counter: precision, recall and wrong labels left.">
+        <defs>
+          <filter id="s4aSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="53" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s4aHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s4aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s4aH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s4aL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s4aS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s4aB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s4aC { font: 800 11px Inter, sans-serif; fill: #3D4A1C; }
+          .s4aW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s4aR { font: 700 11px Inter, sans-serif; fill: #991B1B; }
+          .s4aN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s4aH" x="30" y="26">ONLY THE DATA MOVES. TWO COUNTERS READ WHAT IT DID</text>
+
+        <g filter="url(#s4aSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M40 200 C54 130 110 104 156 122 C192 136 206 172 210 200 Z" fill="url(#s4aHc)"/>
+          <!-- switch rack -->
+          <rect x="250" y="56" width="200" height="200" rx="8" transform="rotate(-0.4 350 156)" fill="#FFFFFF"/>
+          <path d="M270 84 L300 84 M270 116 L300 116 M270 148 L300 148 M270 180 L300 180" stroke="#5B6C2E" stroke-width="3"/>
+          <path d="M270 212 L300 212" stroke="#991B1B" stroke-width="3"/>
+          <circle cx="296" cy="84" r="4" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <circle cx="274" cy="116" r="4" fill="#FFFFFF"/>
+          <circle cx="274" cy="148" r="4" fill="#FFFFFF"/>
+          <circle cx="274" cy="180" r="4" fill="#FFFFFF"/>
+          <circle cx="274" cy="212" r="4" fill="#FEF2F2" stroke="#991B1B"/>
+          <path d="M214 170 L242 160" marker-end="url(#s4aAr)"/>
+          <!-- frozen model -->
+          <rect x="500" y="100" width="130" height="60" rx="8" transform="rotate(0.5 565 130)" fill="#3D4A1C" stroke="#3D4A1C"/>
+          <path d="M456 130 L492 130" marker-end="url(#s4aAr)"/>
+          <!-- test set and measured counter -->
+          <rect x="680" y="60" width="170" height="54" rx="8" transform="rotate(-0.5 765 87)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <circle cx="765" cy="160" r="28" fill="#F1F4E6"/>
+          <path d="M765 160 L782 144" stroke="#3D4A1C"/>
+          <path d="M636 120 C656 100 664 92 674 90" marker-end="url(#s4aAr)"/>
+          <path d="M765 118 L765 126" marker-end="url(#s4aAr)"/>
+          <!-- planted counter -->
+          <path d="M456 236 C560 262 660 262 730 250" stroke="#A63F1C" stroke-dasharray="6 5" marker-end="url(#s4aAr)"/>
+          <circle cx="765" cy="248" r="28" fill="#FBEAE1" stroke="#A63F1C"/>
+          <path d="M765 248 L748 234" stroke="#A63F1C"/>
+        </g>
+
+        <text class="s4aL" x="125" y="220" text-anchor="middle">800 training rows</text>
+        <text class="s4aS" x="125" y="236" text-anchor="middle">133 labels planted wrong</text>
+        <text class="s4aL" x="310" y="88">relabel or remove flags</text>
+        <text class="s4aL" x="310" y="120">drop ambiguous rows</text>
+        <text class="s4aL" x="310" y="152">shift the weakest digit</text>
+        <text class="s4aL" x="310" y="184">add 497 more rows</text>
+        <text class="s4aR" x="310" y="216">the leak: in-sample</text>
+        <text class="s4aW" x="514" y="126">kNN, k = 10</text>
+        <text class="s4aW" x="514" y="144">frozen</text>
+        <text class="s4aL" x="694" y="84">500 test digits</text>
+        <text class="s4aS" x="694" y="100">clean, never edited</text>
+        <text class="s4aC" x="812" y="164">MEASURED</text>
+        <text class="s4aS" x="812" y="180">accuracy</text>
+        <text class="s4aB" x="812" y="244">PLANTED</text>
+        <text class="s4aS" x="812" y="260">precision</text>
+        <text class="s4aS" x="812" y="274">recall</text>
+        <text class="s4aB" x="590" y="276" text-anchor="middle">compared with the declared plant</text>
+
+        <text class="s4aN" x="30" y="316">The top dial exists on every project. The bottom dial exists only on a bench, because only a bench knows the answer key.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the rust dial is the one you will not have at work, so tonight is the night to learn what it would have told you</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The measured counter: accuracy on 500 clean digits<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Test accuracy</strong> is the share of the 500 test digits the frozen model gets right after the edit. One test digit is 0.2 points, so a difference of one or two digits on a single seed is not a finding. The readout also prints the difference against the baseline, and the ceiling: the same model trained on the true labels gets 489 of 500, 97.8 percent. That ceiling is knowable only because the plant is declared.</p>
+        <p><strong>Training rows</strong> says how many rows the edit left. Removal shrinks the set; relabelling keeps it; augmentation and extra data grow it. Reading accuracy without this number hides what an edit cost.</p>
+        <p><strong>Per-digit test accuracy</strong> sits under the readout, with the change against the baseline for each digit. It is there to be read, never to choose an edit: session 5 picks the weak digit on the training set.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The planted counter: precision, recall and what is left<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Detector precision</strong> is the share of flagged rows that really were planted errors. <strong>Recall</strong> is the share of the 133 planted errors the detector flagged. <strong>Wrong labels left</strong> counts training rows whose label still differs from the true digit after the edit, including any a relabel got wrong. Accuracy can saturate while these keep moving, which is why the bench reports both: a detector that finds a third of the errors can still lift accuracy, and you would never know it had missed two thirds.</p>
+        <p>Under the readout the bench prints where the flags go, the off-diagonal of the confident joint, and the per-class thresholds, then draws every flagged row from its own 64 pixels with a rust ring when it was a planted error and a grey ring when it was a false alarm. The last gallery is the planted errors the detector missed. Look at them: they are the 7s that look most like 1s.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="section" id="bench">
+    <div class="section-kicker">
+      <span class="klabel">Build-along · the bench</span>
+      <h2>Eight edits, computed in front of you</h2>
+      <span class="tag demo">★ 26 min · the main event</span>
+    </div>
+    <p class="lede">Work down the eight in order. For each, read the verdict, then accuracy against the baseline, then the two planted counters, then the thumbnails. Say out loud what changed before moving on. The two red cards are the traps. Each edit takes a moment to compute, because the model really runs: four-fold cross-validation for the detector, then a full scoring pass.</p>
+
+    <div id="dcai-bench"></div>
+
+    <div class="callout tip">
+      <p><strong>Read it in this order.</strong> Baseline first, and sit with 91.4 percent against the 97.8 percent ceiling: that gap of 32 test digits is what the planted labels cost. Then the anti-lever, then the two confident-learning edits, then the three variations. Below the eight cards, the knobs let you combine edits freely; every combination is computed the same way, and session 6 asks you to find the best one.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers what the eight edits find</span>
+      <h2>Same model, eight answers</h2>
+      <span class="tag concept">6 min live</span>
+    </div>
+    <p class="lede">The bench computes these live; the numbers here are the ones it prints for the shipped seed, written down so they can be argued with after class. Because one seed is one draw, the same ladder was also run on twenty seeds with the same plant rule, and the last column gives the twenty-seed mean. Where the two disagree, the mean is the claim.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A dot plot of test accuracy for nine rows on an axis from 90 to 98 percent. True labels 97.8. Relabel then shift the weakest digit 96.0. Remove flagged 95.8. Relabel flagged 95.6. Collect 497 more and clean all 95.6. Relabel then drop ambiguous 95.0. The leak 94.8. Baseline 91.4. Add 497 more with the same noise 90.8, the only row left of the baseline.">
+        <defs>
+          <filter id="s4bSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="59" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+        </defs>
+        <style>
+          .s4bH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s4bL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s4bS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s4bB { font: 800 12px Inter, sans-serif; fill: #7C2D12; }
+          .s4bV { font: 800 12px Inter, sans-serif; fill: #3D4A1C; }
+          .s4bR { font: 800 12px Inter, sans-serif; fill: #991B1B; }
+          .s4bA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s4bN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s4bH" x="30" y="26">TEST ACCURACY, SAME FROZEN MODEL, 500 CLEAN DIGITS</text>
+        <text class="s4bS" x="30" y="44">axis runs 90 to 98 percent, 72px per point · the dashed line is the baseline</text>
+
+        <g filter="url(#s4bSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M260 362 L850 362" stroke="#CCD3BC"/>
+          <path d="M260 356 L260 368 M404 356 L404 368 M548 356 L548 368 M692 356 L692 368 M836 356 L836 368" stroke="#CCD3BC"/>
+          <path d="M360.8 58 L360.8 350" stroke="#A63F1C" stroke-dasharray="5 5"/>
+          <path d="M260 74 L821.6 74 M260 108 L692.0 108 M260 142 L677.6 142 M260 176 L663.2 176 M260 210 L663.2 210 M260 244 L620.0 244 M260 278 L605.6 278 M260 312 L360.8 312 M260 346 L317.6 346" stroke="#E0E5D2"/>
+          <circle cx="821.6" cy="74" r="6" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <circle cx="692.0" cy="108" r="6" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <circle cx="677.6" cy="142" r="6" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <circle cx="663.2" cy="176" r="6" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <circle cx="663.2" cy="210" r="6" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <circle cx="620.0" cy="244" r="6" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <circle cx="605.6" cy="278" r="6" fill="#FEF2F2" stroke="#991B1B"/>
+          <circle cx="360.8" cy="312" r="6" fill="#A63F1C" stroke="#A63F1C"/>
+          <circle cx="317.6" cy="346" r="6" fill="#FEF2F2" stroke="#991B1B"/>
+        </g>
+
+        <text class="s4bL" x="248" y="78" text-anchor="end">True labels (ceiling)</text>
+        <text class="s4bL" x="248" y="112" text-anchor="end">Relabel, shift the weakest</text>
+        <text class="s4bL" x="248" y="146" text-anchor="end">Remove what CL flags</text>
+        <text class="s4bL" x="248" y="180" text-anchor="end">Relabel what CL flags</text>
+        <text class="s4bL" x="248" y="214" text-anchor="end">Collect 497, clean all</text>
+        <text class="s4bL" x="248" y="248" text-anchor="end">Relabel, drop ambiguous</text>
+        <text class="s4bR" x="248" y="282" text-anchor="end">The leak</text>
+        <text class="s4bB" x="248" y="316" text-anchor="end">Baseline</text>
+        <text class="s4bR" x="248" y="350" text-anchor="end">497 more, same noise</text>
+
+        <text class="s4bV" x="833.6" y="78">97.8</text>
+        <text class="s4bV" x="704.0" y="112">96.0</text>
+        <text class="s4bV" x="689.6" y="146">95.8</text>
+        <text class="s4bV" x="675.2" y="180">95.6</text>
+        <text class="s4bV" x="675.2" y="214">95.6</text>
+        <text class="s4bV" x="632.0" y="248">95.0</text>
+        <text class="s4bR" x="617.6" y="282">94.8</text>
+        <text class="s4bB" x="372.8" y="316">91.4</text>
+        <text class="s4bR" x="329.6" y="350">90.8</text>
+
+        <text class="s4bA" x="260" y="384" text-anchor="middle">90</text>
+        <text class="s4bA" x="404" y="384" text-anchor="middle">92</text>
+        <text class="s4bA" x="548" y="384" text-anchor="middle">94</text>
+        <text class="s4bA" x="692" y="384" text-anchor="middle">96</text>
+        <text class="s4bA" x="836" y="384" text-anchor="middle">98</text>
+        <text class="s4bN" x="30" y="408">Every dot right of the dashed line is a data edit that beat the baseline on the same frozen model. One dot is left of it.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the only edit that lost ground was the one that added data without looking at it</figcaption>
+    </figure>
+
+    <table class="clean">
+      <tr><th>Edit</th><th>Train rows</th><th>Test accuracy</th><th>vs baseline</th><th>Wrong labels left</th><th>20-seed mean</th></tr>
+      <tr><td>True labels (reference)</td><td>800</td><td>97.8%</td><td>+6.4</td><td>0</td><td>97.26%</td></tr>
+      <tr><td><strong>Baseline</strong>, the labels you were given</td><td>800</td><td><strong>91.4%</strong></td><td>0</td><td>133</td><td>89.97%</td></tr>
+      <tr><td>Add 497 more, same noise</td><td>1,297</td><td>90.8%</td><td><strong>-0.6</strong></td><td>219</td><td>90.22%</td></tr>
+      <tr><td>Remove what CL flags</td><td>702</td><td><strong>95.8%</strong></td><td>+4.4</td><td>48</td><td>94.17%</td></tr>
+      <tr><td>Relabel what CL flags</td><td>800</td><td>95.6%</td><td>+4.2</td><td>61</td><td>94.45%</td></tr>
+      <tr><td>Relabel, then drop ambiguous</td><td>690</td><td>95.0%</td><td>+3.6</td><td>23</td><td>93.61%</td></tr>
+      <tr><td>Relabel, then shift the weakest digit</td><td>1,084</td><td>96.0%</td><td>+4.6</td><td>61</td><td>94.52%</td></tr>
+      <tr><td>The leak: relabel with an in-sample detector</td><td>800</td><td>94.8%</td><td>+3.4</td><td>95</td><td>92.70%</td></tr>
+      <tr><td>Collect 497 more, and clean all of it</td><td>1,297</td><td>95.6%</td><td>+4.2</td><td>118</td><td>94.60%</td></tr>
+    </table>
+    <p class="mono" style="margin-top:6px">Shipped seed 20210921, the one of twenty whose ladder sits closest to the twenty-seed mean. All counts computed; the plant is constructed.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Finding 1: cleaning the 800 is worth about four points<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Confident learning flags 98 of the 800 rows. 85 of them are planted errors, a precision of 86.7 percent, and it finds 85 of the 133, a recall of 63.9 percent. Removing the 98 takes the frozen model from 91.4 to 95.8 percent; relabelling them to the suggested digit takes it to 95.6. Every one of the 85 caught errors is relabelled to its true digit; the 13 false alarms are relabelled wrongly. Over twenty seeds removal averages +4.20 points and relabelling +4.48, and neither is ever worse than the baseline. On this seed removal edges ahead by one test digit; on the mean relabelling does. Call them about equal, and choose by what the removed rows would have cost to collect.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Finding 2: the cleaner set scored lower<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Dropping ambiguous rows after relabelling, the 110 rows whose ten neighbours reach no majority, leaves only 23 wrong labels in training, the cleanest set on the ladder. It scores 95.0 percent, below plain relabelling at 95.6. The ambiguous rows are mostly correctly labelled digits that sit near a boundary, and near-boundary rows are exactly what a nearest-neighbour model needs to place the boundary. Fewer wrong labels is not the goal; a better model on the test set is. Try the same knob on the 1,297 rows in the knobs panel and it helps instead, which is session 5's small-data lesson.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The honest dip: shifting the weakest digit bought almost nothing on average<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>On this seed, adding four one-pixel shifts of every training 9, the digit the relabelled training set agrees with least under cross-validation, takes the model to 96.0 percent, the best preset, and lifts test 9s from 56 to 59 of 65. Over twenty seeds the same edit averages +0.07 points over plain relabelling. That is the measurement: augmentation adds coverage of an invariance, and on 8 by 8 digits whose main problem is wrong labels, coverage is rarely the bottleneck. A one-pixel shift at this resolution is also a four-pixel shift of the original 32 by 32 scan, a coarse transform. Session 5 is about when augmentation is the right edit.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers the anti-lever and the leak</span>
+      <h2>More of the same, and a detector that grades itself</h2>
+      <span class="tag concept">4 min live</span>
+    </div>
+    <p class="lede">Two edits on the bench look reasonable in a planning meeting and lose ground on the counters. Both fail for mechanical reasons you can draw.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two panels. Left: a neighbourhood of a test 7 with ten nearest training rows circled; among them several 7s carry the label 1 because they look like 1s. Adding 497 more rows from the same labellers adds more 7s labelled 1 in the same neighbourhood, so the vote does not improve. Right: the leak. With in-sample votes each training row finds itself as its own nearest neighbour and votes for its own label, so a wrong label vouches for itself; recall falls from 63.9 to 30.1 percent.">
+        <defs>
+          <filter id="s4cSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="61" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <marker id="s4cAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s4cH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s4cL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s4cS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s4cB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s4cG { font: 800 12px Inter, sans-serif; fill: #3D4A1C; }
+          .s4cR { font: 800 12px Inter, sans-serif; fill: #991B1B; }
+          .s4cN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s4cH" x="30" y="26">WHY MORE ROWS DID NOT HELP</text>
+        <text class="s4cH" x="470" y="26">WHY THE IN-SAMPLE DETECTOR MISSES</text>
+
+        <g filter="url(#s4cSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="30" y="44" width="410" height="236" rx="10" transform="rotate(-0.3 235 162)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <circle cx="200" cy="160" r="86" stroke="#5B6C2E" stroke-dasharray="6 5"/>
+          <!-- the query -->
+          <path d="M194 154 L206 166 M206 154 L194 166" stroke="#1E2413" stroke-width="2.6"/>
+          <!-- clean 7s -->
+          <circle cx="160" cy="120" r="7" fill="#F1F4E6"/>
+          <circle cx="238" cy="118" r="7" fill="#F1F4E6"/>
+          <circle cx="252" cy="190" r="7" fill="#F1F4E6"/>
+          <circle cx="146" cy="198" r="7" fill="#F1F4E6"/>
+          <circle cx="206" cy="222" r="7" fill="#F1F4E6"/>
+          <!-- 7s labelled 1 (planted) -->
+          <circle cx="178" cy="176" r="7" fill="#A63F1C" stroke="#A63F1C"/>
+          <circle cx="226" cy="146" r="7" fill="#A63F1C" stroke="#A63F1C"/>
+          <circle cx="170" cy="140" r="7" fill="#A63F1C" stroke="#A63F1C"/>
+          <!-- pool rows, same plant, same place -->
+          <circle cx="232" cy="172" r="7" fill="#FBEAE1" stroke="#A63F1C" stroke-dasharray="3 3"/>
+          <circle cx="188" cy="200" r="7" fill="#FBEAE1" stroke="#A63F1C" stroke-dasharray="3 3"/>
+          <!-- right panel -->
+          <rect x="470" y="44" width="380" height="236" rx="10" transform="rotate(0.3 660 162)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <circle cx="560" cy="150" r="9" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M572 140 C610 100 640 112 628 136 C620 152 594 156 574 150" marker-end="url(#s4cAr)"/>
+          <circle cx="720" cy="150" r="9" fill="#A63F1C" stroke="#A63F1C"/>
+          <circle cx="706" cy="118" r="7" fill="#F1F4E6"/>
+          <circle cx="748" cy="132" r="7" fill="#F1F4E6"/>
+          <circle cx="742" cy="176" r="7" fill="#F1F4E6"/>
+          <path d="M700 150 L736 150" stroke="#5B6C2E" stroke-width="2.6" stroke-dasharray="4 4"/>
+          <path d="M506 188 L610 188 M676 188 L800 188" stroke="#E0E5D2"/>
+        </g>
+
+        <text class="s4cL" x="50" y="70">ten nearest to a test 7</text>
+        <text class="s4cS" x="300" y="100">moss: a 7 labelled 7</text>
+        <text class="s4cB" x="300" y="118">rust: a 7 labelled 1</text>
+        <text class="s4cS" x="300" y="136">dashed: the pool's</text>
+        <text class="s4cS" x="300" y="150">7s labelled 1, same</text>
+        <text class="s4cS" x="300" y="164">place, same mistake</text>
+        <text class="s4cG" x="50" y="262">Base 91.4%</text>
+        <text class="s4cR" x="170" y="262">with 497 more: 90.8%</text>
+
+        <text class="s4cR" x="492" y="70">In sample</text>
+        <text class="s4cS" x="492" y="210">each row is its own</text>
+        <text class="s4cS" x="492" y="224">nearest neighbour and</text>
+        <text class="s4cS" x="492" y="238">votes for its own label</text>
+        <text class="s4cR" x="492" y="262">recall 30.1%</text>
+        <text class="s4cG" x="676" y="70">Out of sample, 4 folds</text>
+        <text class="s4cS" x="676" y="210">the row is held out, so</text>
+        <text class="s4cS" x="676" y="224">only its neighbours vote</text>
+        <text class="s4cS" x="676" y="238">on what it looks like</text>
+        <text class="s4cG" x="676" y="262">recall 63.9%</text>
+
+        <text class="s4cN" x="30" y="312">Systematic noise is reinforced by more rows; a wrong label that votes for itself is never flagged. Both are measured above.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - more data from the same labellers adds rust dots where the rust dots already are</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why 497 more rows made it worse<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The plant is systematic. The 7s labelled 1 are the 7s that look most like 1s, and the pool's 7s labelled 1 are the same kind of 7. Adding them puts more wrong votes in exactly the neighbourhoods where the model was already confused. The bench shows 457 correct becoming 454, and the wrong labels in training rising from 133 to 219. Over twenty seeds the change averages +0.25 points and is worse than the baseline in 8 of 20: "about nothing", with the sign decided by the draw.</p>
+        <p>The honest nuance: this is not a law that more data never helps. With purely random noise, more rows do average the errors out, and the homework in session 1 asks you to see it. And more data that is cleaned too, the last preset, reaches 95.6 percent. The trap is more data from the same process, unexamined.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why the in-sample detector looks precise and is not<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Confident learning needs out-of-sample predicted probabilities; the paper fixes four folds of cross-validation, and the MIT notes say "We use cross-validation to obtain predicted probabilities out-of-sample." With in-sample votes each training row is its own nearest neighbour at distance zero, so every row casts one vote for its own label before anyone else votes. The detector flags only 42 rows, 95.2 percent of them real errors, and finds 30.1 percent of the planted errors against 63.9 out of sample. Precision went up while recall halved, and a team reading only precision would call it an improvement. Accuracy lands at 94.8 against 95.6.</p>
+        <p>This is detector leakage, the row seeing its own answer, and it is a different animal from feature leakage, where a column carries the target. Feature leakage belongs to <a href="https://phoebefu6.github.io/learn-feature-engineering-with-phoebe/courses/b5-leakage.html">Feature Engineering ↗</a>.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>"We need more labelled data" is the most common request in a stalled project.</strong> Ng's slide makes the counter-claim for small data: with 500 examples and 12 percent noise, cleaning and doubling the set are "about equally effective". The bench adds a sharper version: when the new rows come from the same labellers with the same guideline, doubling can be worth nothing at all. Ask where the new labels will come from before asking how many.</p>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>What to ask for, if you lead the team.</strong> For any cleaning pass, ask for two numbers, not one: how many rows were flagged, and on a hand-checked random sample of flags, what share were really wrong. Then ask how the probabilities were produced. If the answer is not "out of sample", the precision number is flattering a detector that is missing most of the errors.</p>
+    </div>
+  </section>
+
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 5</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li><strong>Fill the eight-row table from the bench</strong> in your own notes, adding a column for detector recall. Circle the row whose accuracy and recall disagree most.</li>
+      <li><strong>Find a combination that beats 96.0 percent</strong> with the knobs, and write down which edits it uses and how many training rows it ends with.</li>
+      <li><strong>Look at the missed gallery.</strong> Pick five missed rows and write, for each, whether you would have labelled it correctly yourself. That is the ceiling any label-quality process has on this data.</li>
+      <li><strong>Estimate your own planted counter.</strong> For your last cleaning pass, how would you measure precision without an answer key? Session 6 needs the answer.</li>
+    </ol>
+  </section>
+
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <p>Clear all three and session 4 gets stamped in your passport.</p>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · Relabelling with an in-sample detector flags 42 rows at 95.2 percent precision; the out-of-sample detector flags 98 at 86.7 percent. Which is the better detector?</p>
+      <button class="qopt" type="button">A · The in-sample one, because its flags are more often right</button>
+      <button class="qopt" type="button">B · The out-of-sample one: it finds 63.9 percent of the planted errors against 30.1, because in sample every row is its own nearest neighbour and votes for its own label, so wrong labels vouch for themselves</button>
+      <button class="qopt" type="button">C · Neither, because both leave wrong labels in the set</button>
+      <button class="qopt" type="button">D · They are equal, because accuracy differs by less than a point</button>
+      <p class="qwhy">Precision alone rewards a detector for flagging less. Recall is the second counter that exposes it, and the mechanism is the reason confident learning requires out-of-sample probabilities. Accuracy also falls, 94.8 against 95.6.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="3">
+      <p class="qtext">2 · Dropping ambiguous rows after relabelling leaves only 23 wrong labels, the cleanest set, yet scores 95.0 against 95.6. What is going on?</p>
+      <button class="qopt" type="button">A · The bench has a bug in the ambiguous rule</button>
+      <button class="qopt" type="button">B · Wrong labels do not matter to kNN</button>
+      <button class="qopt" type="button">C · The test set is dirtier than it looks</button>
+      <button class="qopt" type="button">D · The 110 dropped rows are mostly correct digits near a boundary, and a nearest-neighbour model needs them to place that boundary; a cleaner set is not the goal, a better model on untouched test data is</button>
+      <p class="qwhy">Wrong labels left is a planted counter, and it is not the objective. On the 1,297 rows the same knob helps, 96.6 percent with relabelling, because a bigger set can afford to lose its boundary rows. Session 5 turns that into a rule for small data.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · A manager asks for 497 more labelled rows from the same vendor. What does the bench say to expect, and why?</p>
+      <button class="qopt" type="button">A · Roughly nothing: 90.8 against 91.4 on this seed and +0.25 on the twenty-seed mean, because the vendor's confusions are systematic and new rows repeat them in the same places; the same rows cleaned first reach 95.6</button>
+      <button class="qopt" type="button">B · About +4 points, like cleaning</button>
+      <button class="qopt" type="button">C · A guaranteed loss, because more data always hurts kNN</button>
+      <button class="qopt" type="button">D · It depends only on the model, not the data</button>
+      <p class="qwhy">The honest claim is "about nothing, sign decided by the draw", not "always worse". C overstates it the other way. The useful follow-up question is how the new labels will be produced, which is session 2.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Every accuracy, flag and count on the bench</span><span class="note">Computed in the browser from the 1,797 UCI digits (Alpaydin and Kaynak, 1998); reproduced to the row by an independent Python run, and swept over twenty seeds</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Confident learning: thresholds, the confident joint, out-of-sample probabilities</span><span class="note">Northcutt, Jiang and Chuang (2021), JAIR, read from the paper; four folds as in its experiments</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Cleaning against doubling on small data</span><span class="note">Ng (2021) slide claim quoted as a claim; the bench measures one version of it</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Precision and recall of the detector</span><span class="note">Countable only because the noise plant is constructed and declared; real noise has an unknown shape</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">How far the ladder transfers</span><span class="note">Not claimed. One small image dataset and one frozen model; the mechanisms transfer, the point values do not</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Every fact on this page, and its verification tier, is recorded in the course's source map.</p>
+  </section>
+
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 4 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Two counters, always</b><span>Accuracy on untouched test data, and detector recall. Precision alone flatters.</span></div>
+      <div class="cheat-item"><b>Cleaning the 800</b><span>91.4 to 95.8 removed, 95.6 relabelled. About +4 points on twenty seeds.</span></div>
+      <div class="cheat-item"><b>More of the same</b><span>90.8. Systematic confusions repeat; clean the new rows too.</span></div>
+      <div class="cheat-item"><b>Out of sample or nothing</b><span>In-sample recall 30.1 against 63.9. A row must not vote for itself.</span></div>
+      <div class="cheat-item"><b>Cleaner is not better</b><span>Dropping ambiguous rows: 23 wrong labels left, 95.0 percent.</span></div>
+      <div class="cheat-item"><b>One seed is one draw</b><span>One test digit is 0.2 points. Quote the twenty-seed mean.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>The bench cleaned labels. Some errors are not labels at all: a kind of input the training set barely has, a slice where the model is quietly worse. Session 5 finds slices without peeking at the test set, asks when augmentation is the right edit and when it is decoration, and settles the collect-or-clean question for small data with the numbers from tonight's knobs.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 4 of 6 · learn-data-centric-ai-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="03-finding-the-wrong-labels.html">← Prev: Finding the wrong labels</a> &nbsp;·&nbsp; <a href="05-slice-augment-or-collect.html">Next: Slice, augment or collect →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/dcai-sample.js?v=1"></script>
+<script src="../assets/dcai-live.js?v=2"></script>
+<script src="../assets/app.js?v=3"></script>
+</body>
+</html>

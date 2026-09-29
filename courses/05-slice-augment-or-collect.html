@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 5 of 6. Find the weak slice on training data only, augment it for coverage, and price collecting more rows against cleaning the ones you have. On the real digits, cleaning 800 rows matched collecting 62 percent more and cleaning all of it.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Slice, augment or collect - learn data-centric ai with phoebe">
+<meta property="og:description" content="Session 5 of 6. The weakest digit is chosen by cross-validated agreement, never by test accuracy. Shifting it buys +0.07 points on a 20-seed average; cleaning 800 rows scores the same as collecting and cleaning 1,297.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/courses/05-slice-augment-or-collect.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Slice, augment or collect - learn data-centric ai with phoebe">
+<meta name="twitter:description" content="Session 5 of 6. Find the weak slice without peeking, augment for coverage, and ask for the clean-first number before a collection budget.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 5 · Slice, augment or collect - learn data-centric ai with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=3">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-centric-ai-with-phoebe</a> / Session 5 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data-Centric AI with Phoebe · Session 5 of 6</div>
+    <h1>Slice, augment <span class="accent">or collect</span></h1>
+    <p class="sub">Relabelling fixed the rows that were wrong. What is left is a different kind of problem: whole kinds of input the model handles worse than the rest, and a budget line that says "collect more data". Tonight we find the weak slice without looking at the test set, add rows that cover it by encoding an invariance, and then put the collection budget on trial against the cheaper edit of cleaning what you already have. Same frozen model, same locked 500 test digits, and one rule that runs through all three parts: decisions are made on training data, and the test set only ever reports.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">ML engineers, data scientists, data leads</span>
+      <span class="chip audience">Python, numpy</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Slice, augment, collect or clean</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: three routes, one frozen model</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we start</h2>
+    </div>
+    <p class="lede">By the end of session 4 the bench had a clear winner for the first edit: run confident learning out of sample and relabel what it flags, 457 correct test digits up to 478. The labels are now mostly right. The model is still wrong on some digits more than others, and the next request on the table is usually a data-collection budget. Before anyone signs it, three questions: which slice is weak, will a cheap transform cover it, and would the new rows buy more than cleaning the old ones?</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">★ Build-along = run the code yourself</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A way to find the weakest slice on training data alone (the 9s, at 57 of 71 cross-validated agreement), a label-preservation test for any augmentation, and a measured answer to "collect or clean": on these digits, cleaning the 800 you have scored 478, the same as collecting 497 more and cleaning all of it, while collecting without cleaning scored 454.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers slicing</span>
+      <h2>Find the weak slice without peeking</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">An aggregate score is an average over slices, and averages hide their worst member. The MIT data-centric evaluation notes define a data slice as "a subset of the dataset that shares a common characteristic" and score it by the average per-example loss on held-out data inside the slice. The catch is which held-out data. If you pick the weak slice by reading test accuracy per digit, the test set has made a decision, and its number no longer measures that decision. So the slice is found on training rows, using the same out-of-fold votes that found the wrong labels in session 3.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Horizontal bars, one per digit, sorted weakest first, showing how many of each digit's relabelled training rows the out-of-fold neighbours agree with. 9: 57 of 71, 80.3 percent, drawn in rust as the weakest. Then 4: 85.2, 8: 86.0, 1: 87.7, 3: 90.5, 7: 90.5, 2: 97.5, 6: 98.9, 0 and 5: 100 percent. A brick wall separates the bars from a locked test set box of 500 digits, 65 of them 9s, which is opened only after the choice.">
+        <defs>
+          <filter id="s5aSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="51" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s5aHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s5aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s5aH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s5aL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s5aS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s5aB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s5aA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s5aN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s5aH" x="30" y="26">THE WEAK SLICE, FOUND ON THE TRAINING ROWS ONLY</text>
+        <text class="s5aS" x="30" y="44">4-fold agreement per digit, relabelled 800, sorted weakest first</text>
+
+        <g filter="url(#s5aSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M60 58 L60 282" stroke="#CCD3BC"/>
+          <path d="M460 58 L460 282" stroke="#CCD3BC" stroke-dasharray="4 5"/>
+          <rect x="60" y="64" width="321" height="14" rx="3" transform="rotate(-0.3 220 71)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="60" y="86" width="341" height="14" rx="3" transform="rotate(0.2 230 93)" fill="url(#s5aHc)"/>
+          <rect x="60" y="108" width="344" height="14" rx="3" transform="rotate(-0.2 232 115)" fill="url(#s5aHc)"/>
+          <rect x="60" y="130" width="351" height="14" rx="3" transform="rotate(0.3 235 137)" fill="url(#s5aHc)"/>
+          <rect x="60" y="152" width="362" height="14" rx="3" transform="rotate(-0.2 241 159)" fill="url(#s5aHc)"/>
+          <rect x="60" y="174" width="362" height="14" rx="3" transform="rotate(0.2 241 181)" fill="url(#s5aHc)"/>
+          <rect x="60" y="196" width="390" height="14" rx="3" transform="rotate(-0.2 255 203)" fill="url(#s5aHc)"/>
+          <rect x="60" y="218" width="396" height="14" rx="3" transform="rotate(0.2 258 225)" fill="url(#s5aHc)"/>
+          <rect x="60" y="240" width="400" height="14" rx="3" transform="rotate(-0.2 260 247)" fill="url(#s5aHc)"/>
+          <rect x="60" y="262" width="400" height="14" rx="3" transform="rotate(0.2 260 269)" fill="url(#s5aHc)"/>
+          <!-- the wall -->
+          <rect x="594" y="60" width="24" height="222" rx="2" transform="rotate(0.4 606 171)" fill="#F1F4E6"/>
+          <path d="M594 88 L618 88 M594 116 L618 116 M594 144 L618 144 M594 172 L618 172 M594 200 L618 200 M594 228 L618 228 M594 256 L618 256" stroke="#545B44"/>
+          <path d="M606 60 L606 88 M600 88 L600 116 M612 116 L612 144 M606 144 L606 172 M600 172 L600 200 M612 200 L612 228 M606 228 L606 256 M600 256 L600 282" stroke="#545B44"/>
+          <!-- locked test set -->
+          <rect x="648" y="100" width="200" height="86" rx="8" transform="rotate(-0.4 748 143)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <rect x="818" y="112" width="16" height="13" rx="2" stroke="#3D4A1C"/>
+          <path d="M821 112 L821 107 C821 101 831 101 831 107 L831 112" stroke="#3D4A1C"/>
+        </g>
+
+        <text class="s5aL" x="50" y="75" text-anchor="end">9</text>
+        <text class="s5aL" x="50" y="97" text-anchor="end">4</text>
+        <text class="s5aL" x="50" y="119" text-anchor="end">8</text>
+        <text class="s5aL" x="50" y="141" text-anchor="end">1</text>
+        <text class="s5aL" x="50" y="163" text-anchor="end">3</text>
+        <text class="s5aL" x="50" y="185" text-anchor="end">7</text>
+        <text class="s5aL" x="50" y="207" text-anchor="end">2</text>
+        <text class="s5aL" x="50" y="229" text-anchor="end">6</text>
+        <text class="s5aL" x="50" y="251" text-anchor="end">0</text>
+        <text class="s5aL" x="50" y="273" text-anchor="end">5</text>
+
+        <text class="s5aB" x="389" y="75">57 of 71, 80.3%, weakest</text>
+        <text class="s5aS" x="409" y="97">69 of 81, 85.2%</text>
+        <text class="s5aS" x="412" y="119">74 of 86, 86.0%</text>
+        <text class="s5aS" x="419" y="141">71 of 81, 87.7%</text>
+        <text class="s5aS" x="430" y="163">67 of 74, 90.5%</text>
+        <text class="s5aS" x="430" y="185">76 of 84, 90.5%</text>
+        <text class="s5aS" x="468" y="207">77 of 79, 97.5%</text>
+        <text class="s5aS" x="468" y="229">87 of 88, 98.9%</text>
+        <text class="s5aS" x="468" y="251">80 of 80, 100.0%</text>
+        <text class="s5aS" x="468" y="273">76 of 76, 100.0%</text>
+
+        <text class="s5aS" x="60" y="298" text-anchor="middle">0</text>
+        <text class="s5aS" x="460" y="298" text-anchor="middle">100%</text>
+        <text class="s5aA" x="60" y="318">OUT-OF-FOLD NEIGHBOURS THAT AGREE WITH THE ROW'S LABEL</text>
+        <text class="s5aA" x="606" y="54" text-anchor="middle">THE WALL</text>
+
+        <text class="s5aL" x="664" y="128">Locked test set</text>
+        <text class="s5aS" x="664" y="146">500 digits, 65 of them 9s</text>
+        <text class="s5aS" x="664" y="164">opened after the choice</text>
+        <text class="s5aS" x="648" y="214">Evaluation data computes scores,</text>
+        <text class="s5aS" x="648" y="230">"not for any modeling decisions"</text>
+        <text class="s5aS" x="648" y="246">MIT data-centric evaluation notes</text>
+
+        <text class="s5aN" x="30" y="340">The choice uses only training folds. The test set is read once, after it, in build-along step 3.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the 9s are the weakest slice by training evidence alone; the test set sits behind the wall until the edit is chosen</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>A slice, and the leak of choosing it on test<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A slice is any subset that shares a characteristic you can name: one digit, one writer, one camera, one country, one customer tier. The MIT notes score it by the average loss of held-out examples inside it, which here becomes the share of each digit's training rows whose four-fold, out-of-sample neighbours agree with the label. The 9s come out at 57 of 71, 80.3 percent, then the 4s at 85.2, the 8s at 86.0 and the 1s at 87.7. Those are exactly the digits the declared plant confused, so the slice table is telling the truth about where the data is still thin or still muddled.</p>
+        <p>The tempting shortcut is to print per-digit test accuracy and pick the lowest. The MIT rule is blunt: evaluation examples "should only be used for computing evaluation scores, not for any modeling decisions." Choosing which slice to edit is a modelling decision. Make it on test, and the next test score is partly a record of your choice rather than a measurement of it; with 65 test 9s, a handful of lucky images can steer the choice and then flatter it. This is evaluation leakage into a decision, a cousin of the feature leakage in <a href="https://phoebefu6.github.io/learn-feature-engineering-with-phoebe/courses/b5-leakage.html">Feature Engineering ↗</a>, not the same thing.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Hidden slices: sort by loss, cluster the top<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Digits are a slice you can name in advance. The ones that hurt in production are usually the ones nobody named: a scanner model, a lighting condition, a dialect. The MIT notes give a procedure for finding them: sort the held-out examples by loss, take the high-loss end, and cluster it. A cluster that keeps appearing is a candidate slice; you then look at its members and give it a name a person can act on.</p>
+        <p>Two cautions carry over from tonight's setup. The "held-out" examples must be out-of-fold training rows, not the locked test set, for the same reason as above. And a cluster of high-loss rows may be a cluster of wrong labels rather than a thin slice, which is why the relabel pass comes first. Reading a hundred of those rows by hand and tagging each one is error analysis, and its method lives in <a href="https://phoebefu6.github.io/learn-ml-strategy-with-phoebe/courses/p3-error-analysis-spreadsheet.html">ML Strategy p3 ↗</a>.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>MIT's four remedies, and which ones are yours<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Once a weak slice is found, the MIT notes list four remedies: use a more flexible model; over-sample or up-weight the minority subgroup; "Collect additional data from the subgroup of interest"; and engineer features that help the model tell the slice apart. The first is model-side, and here the model is frozen. The last is feature work, which changes what the model sees rather than which rows it learns from, and it belongs to <a href="https://phoebefu6.github.io/learn-feature-engineering-with-phoebe/courses/b5-leakage.html">Feature Engineering ↗</a>.</p>
+        <p>That leaves the two data-side remedies, and the rest of tonight is about them. Over-sampling a slice with transformed copies is Part 2. Collecting new rows, from the slice or in general, is Part 3. Class imbalance, outliers and distribution shift have their own MIT lectures; they are named here and not taught.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>An aggregate that hid a slice.</strong> Buolamwini and Gebru's 2018 "Gender Shades" audit of commercial gender classifiers found darker-skinned females misclassified at error rates of up to 34.7 percent, while the maximum error for lighter-skinned males was 0.8 percent. Each system would have looked fine on one overall accuracy number. The slice only appears when someone decides in advance which characteristics to cut by, and then scores each cut separately.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers targeted augmentation</span>
+      <h2>Augment for coverage, not for decoration</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">Augmentation is a claim about the world written as code. The MIT human-priors notes call the claim an invariance, "a change to the input data that doesn't change its output", and say augmentation helps most "when collecting more data is hard or expensive or time consuming". Tonight's claim is small and checkable: a handwritten 9 moved one pixel in any direction is still a 9. Four shifted copies of every training 9 add 284 rows and take the frozen model from 478 to 480 correct. The honest reading of that +0.4 comes after the figure.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A real training 9, row 51, drawn from its 64 pixels, with arrows to four copies shifted one pixel right, left, down and up. Each copy carries the same label 9 on a tag. The up and down shifts push a row of ink off the 8 by 8 grid.">
+        <defs>
+          <filter id="s5bSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="52" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s5bHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s5bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s5bH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s5bL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s5bS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s5bB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s5bW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s5bN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s5bH" x="30" y="26">ONE REAL TRAINING 9, FOUR ONE-PIXEL SHIFTS, ONE LABEL</text>
+
+        <g filter="url(#s5bSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- original frame -->
+          <rect x="40" y="70" width="104" height="104" rx="4" transform="rotate(-0.8 92 122)" fill="#FFFFFF"/>
+          <!-- four copy frames -->
+          <rect x="230" y="80" width="88" height="88" rx="4" transform="rotate(1.2 274 124)" fill="#FFFFFF"/>
+          <rect x="380" y="80" width="88" height="88" rx="4" transform="rotate(-1 424 124)" fill="#FFFFFF"/>
+          <rect x="530" y="80" width="88" height="88" rx="4" transform="rotate(0.9 574 124)" fill="#FFFFFF"/>
+          <rect x="680" y="80" width="88" height="88" rx="4" transform="rotate(-1.3 724 124)" fill="#FFFFFF"/>
+          <!-- arrows from the original to each copy -->
+          <path d="M150 104 C176 102 200 104 222 110" marker-end="url(#s5bAr)"/>
+          <path d="M120 66 C170 50 330 48 406 74" marker-end="url(#s5bAr)"/>
+          <path d="M106 64 C170 40 480 38 556 74" marker-end="url(#s5bAr)"/>
+          <path d="M92 64 C160 30 630 30 706 74" marker-end="url(#s5bAr)"/>
+          <!-- label tags, with a hole and a string back to the frame -->
+          <rect x="57" y="184" width="70" height="22" rx="4" transform="rotate(-2 92 195)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="239" y="178" width="70" height="22" rx="4" transform="rotate(2 274 189)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="389" y="178" width="70" height="22" rx="4" transform="rotate(-2.5 424 189)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="539" y="178" width="70" height="22" rx="4" transform="rotate(1.5 574 189)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="689" y="178" width="70" height="22" rx="4" transform="rotate(-1.8 724 189)" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M92 174 L92 184 M274 168 L274 178 M424 168 L424 178 M574 168 L574 178 M724 168 L724 178" stroke="#7C2D12" stroke-width="1.6"/>
+        </g>
+
+        <g stroke="none"><path d="M68 122h12v12h-12zM92 134h12v12h-12zM80 146h12v12h-12zM56 158h12v12h-12z" fill="#1E2413" fill-opacity="0.06"/><path d="M56 74h12v12h-12zM56 110h12v12h-12zM92 122h12v12h-12zM116 146h12v12h-12z" fill="#1E2413" fill-opacity="0.12"/><path d="M56 98h12v12h-12zM80 122h12v12h-12z" fill="#1E2413" fill-opacity="0.25"/><path d="M80 86h12v12h-12z" fill="#1E2413" fill-opacity="0.31"/><path d="M56 86h12v12h-12zM92 86h12v12h-12zM116 98h12v12h-12zM116 134h12v12h-12zM104 158h12v12h-12z" fill="#1E2413" fill-opacity="0.38"/><path d="M104 74h12v12h-12z" fill="#1E2413" fill-opacity="0.44"/><path d="M116 122h12v12h-12z" fill="#1E2413" fill-opacity="0.50"/><path d="M92 98h12v12h-12zM116 110h12v12h-12z" fill="#1E2413" fill-opacity="0.56"/><path d="M92 146h12v12h-12z" fill="#1E2413" fill-opacity="0.75"/><path d="M104 86h12v12h-12zM68 110h12v12h-12z" fill="#1E2413" fill-opacity="0.81"/><path d="M68 74h12v12h-12zM68 158h12v12h-12z" fill="#1E2413" fill-opacity="0.88"/><path d="M68 86h12v12h-12zM68 98h12v12h-12zM104 110h12v12h-12zM104 122h12v12h-12zM104 146h12v12h-12z" fill="#1E2413" fill-opacity="0.94"/><path d="M80 74h12v12h-12zM92 74h12v12h-12zM104 98h12v12h-12zM80 110h12v12h-12zM92 110h12v12h-12zM104 134h12v12h-12zM80 158h12v12h-12zM92 158h12v12h-12z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M264 124h10v10h-10zM284 134h10v10h-10zM274 144h10v10h-10zM254 154h10v10h-10z" fill="#1E2413" fill-opacity="0.06"/><path d="M254 84h10v10h-10zM254 114h10v10h-10zM284 124h10v10h-10zM304 144h10v10h-10z" fill="#1E2413" fill-opacity="0.12"/><path d="M254 104h10v10h-10zM274 124h10v10h-10z" fill="#1E2413" fill-opacity="0.25"/><path d="M274 94h10v10h-10z" fill="#1E2413" fill-opacity="0.31"/><path d="M254 94h10v10h-10zM284 94h10v10h-10zM304 104h10v10h-10zM304 134h10v10h-10zM294 154h10v10h-10z" fill="#1E2413" fill-opacity="0.38"/><path d="M294 84h10v10h-10z" fill="#1E2413" fill-opacity="0.44"/><path d="M304 124h10v10h-10z" fill="#1E2413" fill-opacity="0.50"/><path d="M284 104h10v10h-10zM304 114h10v10h-10z" fill="#1E2413" fill-opacity="0.56"/><path d="M284 144h10v10h-10z" fill="#1E2413" fill-opacity="0.75"/><path d="M294 94h10v10h-10zM264 114h10v10h-10z" fill="#1E2413" fill-opacity="0.81"/><path d="M264 84h10v10h-10zM264 154h10v10h-10z" fill="#1E2413" fill-opacity="0.88"/><path d="M264 94h10v10h-10zM264 104h10v10h-10zM294 114h10v10h-10zM294 124h10v10h-10zM294 144h10v10h-10z" fill="#1E2413" fill-opacity="0.94"/><path d="M274 84h10v10h-10zM284 84h10v10h-10zM294 104h10v10h-10zM274 114h10v10h-10zM284 114h10v10h-10zM294 134h10v10h-10zM274 154h10v10h-10zM284 154h10v10h-10z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M394 124h10v10h-10zM414 134h10v10h-10zM404 144h10v10h-10zM384 154h10v10h-10z" fill="#1E2413" fill-opacity="0.06"/><path d="M384 84h10v10h-10zM384 114h10v10h-10zM414 124h10v10h-10zM434 144h10v10h-10z" fill="#1E2413" fill-opacity="0.12"/><path d="M384 104h10v10h-10zM404 124h10v10h-10z" fill="#1E2413" fill-opacity="0.25"/><path d="M404 94h10v10h-10z" fill="#1E2413" fill-opacity="0.31"/><path d="M384 94h10v10h-10zM414 94h10v10h-10zM434 104h10v10h-10zM434 134h10v10h-10zM424 154h10v10h-10z" fill="#1E2413" fill-opacity="0.38"/><path d="M424 84h10v10h-10z" fill="#1E2413" fill-opacity="0.44"/><path d="M434 124h10v10h-10z" fill="#1E2413" fill-opacity="0.50"/><path d="M414 104h10v10h-10zM434 114h10v10h-10z" fill="#1E2413" fill-opacity="0.56"/><path d="M414 144h10v10h-10z" fill="#1E2413" fill-opacity="0.75"/><path d="M424 94h10v10h-10zM394 114h10v10h-10z" fill="#1E2413" fill-opacity="0.81"/><path d="M394 84h10v10h-10zM394 154h10v10h-10z" fill="#1E2413" fill-opacity="0.88"/><path d="M394 94h10v10h-10zM394 104h10v10h-10zM424 114h10v10h-10zM424 124h10v10h-10zM424 144h10v10h-10z" fill="#1E2413" fill-opacity="0.94"/><path d="M404 84h10v10h-10zM414 84h10v10h-10zM424 104h10v10h-10zM404 114h10v10h-10zM414 114h10v10h-10zM424 134h10v10h-10zM404 154h10v10h-10zM414 154h10v10h-10z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M554 134h10v10h-10zM574 144h10v10h-10zM564 154h10v10h-10z" fill="#1E2413" fill-opacity="0.06"/><path d="M544 94h10v10h-10zM544 124h10v10h-10zM574 134h10v10h-10zM594 154h10v10h-10z" fill="#1E2413" fill-opacity="0.12"/><path d="M544 114h10v10h-10zM564 134h10v10h-10z" fill="#1E2413" fill-opacity="0.25"/><path d="M564 104h10v10h-10z" fill="#1E2413" fill-opacity="0.31"/><path d="M544 104h10v10h-10zM574 104h10v10h-10zM594 114h10v10h-10zM594 144h10v10h-10z" fill="#1E2413" fill-opacity="0.38"/><path d="M584 94h10v10h-10z" fill="#1E2413" fill-opacity="0.44"/><path d="M594 134h10v10h-10z" fill="#1E2413" fill-opacity="0.50"/><path d="M574 114h10v10h-10zM594 124h10v10h-10z" fill="#1E2413" fill-opacity="0.56"/><path d="M574 154h10v10h-10z" fill="#1E2413" fill-opacity="0.75"/><path d="M584 104h10v10h-10zM554 124h10v10h-10z" fill="#1E2413" fill-opacity="0.81"/><path d="M554 94h10v10h-10z" fill="#1E2413" fill-opacity="0.88"/><path d="M554 104h10v10h-10zM554 114h10v10h-10zM584 124h10v10h-10zM584 134h10v10h-10zM584 154h10v10h-10z" fill="#1E2413" fill-opacity="0.94"/><path d="M564 94h10v10h-10zM574 94h10v10h-10zM584 114h10v10h-10zM564 124h10v10h-10zM574 124h10v10h-10zM584 144h10v10h-10z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M704 114h10v10h-10zM724 124h10v10h-10zM714 134h10v10h-10zM694 144h10v10h-10z" fill="#1E2413" fill-opacity="0.06"/><path d="M694 104h10v10h-10zM724 114h10v10h-10zM744 134h10v10h-10z" fill="#1E2413" fill-opacity="0.12"/><path d="M694 94h10v10h-10zM714 114h10v10h-10z" fill="#1E2413" fill-opacity="0.25"/><path d="M714 84h10v10h-10z" fill="#1E2413" fill-opacity="0.31"/><path d="M694 84h10v10h-10zM724 84h10v10h-10zM744 94h10v10h-10zM744 124h10v10h-10zM734 144h10v10h-10z" fill="#1E2413" fill-opacity="0.38"/><path d="M744 114h10v10h-10z" fill="#1E2413" fill-opacity="0.50"/><path d="M724 94h10v10h-10zM744 104h10v10h-10z" fill="#1E2413" fill-opacity="0.56"/><path d="M724 134h10v10h-10z" fill="#1E2413" fill-opacity="0.75"/><path d="M734 84h10v10h-10zM704 104h10v10h-10z" fill="#1E2413" fill-opacity="0.81"/><path d="M704 144h10v10h-10z" fill="#1E2413" fill-opacity="0.88"/><path d="M704 84h10v10h-10zM704 94h10v10h-10zM734 104h10v10h-10zM734 114h10v10h-10zM734 134h10v10h-10z" fill="#1E2413" fill-opacity="0.94"/><path d="M734 94h10v10h-10zM714 104h10v10h-10zM724 104h10v10h-10zM734 124h10v10h-10zM714 144h10v10h-10zM724 144h10v10h-10z" fill="#1E2413" fill-opacity="1.00"/></g>
+
+        <text class="s5bW" x="92" y="199" text-anchor="middle">label 9</text>
+        <text class="s5bW" x="274" y="193" text-anchor="middle">label 9</text>
+        <text class="s5bW" x="424" y="193" text-anchor="middle">label 9</text>
+        <text class="s5bW" x="574" y="193" text-anchor="middle">label 9</text>
+        <text class="s5bW" x="724" y="193" text-anchor="middle">label 9</text>
+
+        <text class="s5bL" x="92" y="228" text-anchor="middle">training row 51</text>
+        <text class="s5bS" x="92" y="244" text-anchor="middle">a true 9, given 9</text>
+        <text class="s5bL" x="274" y="228" text-anchor="middle">right 1 px</text>
+        <text class="s5bS" x="274" y="244" text-anchor="middle">(dx, dy) = (1, 0)</text>
+        <text class="s5bL" x="424" y="228" text-anchor="middle">left 1 px</text>
+        <text class="s5bS" x="424" y="244" text-anchor="middle">(dx, dy) = (-1, 0)</text>
+        <text class="s5bL" x="574" y="228" text-anchor="middle">down 1 px</text>
+        <text class="s5bS" x="574" y="244" text-anchor="middle">(dx, dy) = (0, 1)</text>
+        <text class="s5bL" x="724" y="228" text-anchor="middle">up 1 px</text>
+        <text class="s5bS" x="724" y="244" text-anchor="middle">(dx, dy) = (0, -1)</text>
+        <text class="s5bB" x="649" y="266" text-anchor="middle">down and up push a row of ink off the grid</text>
+
+        <text class="s5bN" x="30" y="290">At 8x8 one pixel is four pixels of the 32x32 scan, a coarse transform. The label must survive it.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - each copy is drawn from real pixels; the edit is only valid because a 9 moved one pixel is still a 9</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>When augmentation is the right edit<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Augmentation fixes coverage. It helps when the slice is thin, when its real variation is something a transform can imitate, and when new real rows are slow or expensive to get. It does not fix labels: every copy inherits the label of its source. On this seed the shift of the 9s bought two test digits, 478 to 480, and the 9s themselves went from 56 to 59 correct of 65 when the test set was finally read. The overall total rose by only two while the 9s rose by three, so the other digits lost one between them: an extra slice's worth of rows moves the boundary for its neighbours too.</p>
+        <p>Then the honest dip. Over the twenty-seed sweep, relabel plus shift averages 94.52 against 94.45 for relabel alone: +0.07 points, about a third of one test digit. By the time the 9s are shifted, the main problem on this bench, wrong labels, has already been dealt with, and a one-pixel shift at 8 by 8 is a four-pixel shift of the original 32 by 32 scan, a coarse move that adds little new coverage. The +0.4 on one seed is two digits; the +0.07 is the claim.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The label-preservation test<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Before any transform ships, write the invariance as a sentence and try to break it. "A digit shifted by one pixel keeps its label" holds for every digit here. "A digit flipped left to right keeps its label" fails for 2, 3, 4, 5, 7 and 9. "A digit rotated 180 degrees keeps its label" turns a 6 into a 9. Mixup, in the MIT notes, is the case that proves the rule by breaking it on purpose: it blends two inputs and blends their labels in the same proportion, because the blended image no longer belongs to either class.</p>
+        <p>The test is one line per transform in the edit log: the invariance claimed, one input where it fails, and whether that input can occur in the slice you are augmenting. If you cannot name a failure case, you have not thought about the transform long enough.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Shift before cleaning, and every error is copied four times<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The order of edits matters. Tonight the shift runs on the relabelled 800, where the 9s are mostly real 9s. Run it on the given labels instead and the look-alike 4s that the declared plant labelled 9 would be shifted too, four copies each, every copy carrying the wrong label into a denser patch of the training set. Augmentation multiplies whatever the labels say. Clean first, then augment, and write that order into the spec in session 6.</p>
+        <p>The same logic applies to generative augmentation. A generator trained on noisy labels produces plausible new rows with the same confusions, only more of them.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Speech with car noise.</strong> Ng's iterative loop uses a speech system that does poorly on audio recorded in cars. His remedy is to "get more of that data via data augmentation, data generation or data collection (change inputs x)", or to "give more consistent definition for labels" if they were ambiguous (change labels y). One way to get more of that data is to mix clean speech with recorded road noise: augmentation with an invariance anyone can state: the words do not change when the engine is running. The transcript label survives the transform, which is exactly the test above.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers collect or clean, and small data</span>
+      <h2>Collect or clean</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">Ng's slide on small data states a claim with no dataset attached: with 500 examples of which 12 percent are noisy, cleaning the noise and collecting another 500 are "about equally effective", and there is "significant room for improvement in problems with &lt;10,000 examples". Treat it as a hypothesis. The bench can test a version of it, because the 497 pool rows come from the same declared plant: collect them raw, collect and clean them, or leave them and clean the 800 you already have.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 372" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A scatter of training rows used against test accuracy for five edits on the same frozen model. Clean the 800: 800 rows, 478, 95.6 percent. Collect and clean: 1,297 rows, 478, 95.6 percent. Collect raw: 1,297 rows, 454, 90.8 percent. The 800 relabelled with 110 ambiguous rows dropped: 690 rows, 475, 95.0 percent. The 1,297 relabelled with 143 ambiguous rows dropped: 1,154 rows, 483, 96.6 percent. A rust arrow joins the two ambiguous-drop points: the same edit hurts the 800 and helps the 1,297.">
+        <defs>
+          <filter id="s5cSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="53" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s5cHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#A63F1C" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s5cAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s5cH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s5cL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s5cS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s5cB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s5cA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s5cN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s5cH" x="30" y="26">SAME FROZEN MODEL, FIVE DATA ROUTES: ROWS USED AGAINST TEST ACCURACY</text>
+        <text class="s5cA" x="100" y="62">TEST ACCURACY, 500 LOCKED DIGITS</text>
+
+        <g filter="url(#s5cSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M100 240 L840 240 M100 180 L840 180 M100 120 L840 120" stroke="#E0E5D2"/>
+          <path d="M100 76 L100 300 L840 300" stroke="#545B44"/>
+          <path d="M190 300 L190 306 M350 300 L350 306 M510 300 L510 306 M670 300 L670 306 M830 300 L830 306" stroke="#545B44"/>
+          <path d="M350 132 L748 132" stroke="#CCD3BC" stroke-dasharray="5 5"/>
+          <!-- the pair, joined -->
+          <path d="M270 156 C410 215 580 190 626 110" stroke="#A63F1C" marker-end="url(#s5cAr)"/>
+          <circle cx="262" cy="150" r="6" fill="#A63F1C" stroke="#A63F1C"/>
+          <circle cx="633" cy="102" r="6" fill="#A63F1C" stroke="#A63F1C"/>
+          <!-- the other three -->
+          <circle cx="350" cy="132" r="6" fill="#5B6C2E" stroke="#3D4A1C"/>
+          <circle cx="748" cy="132" r="6" fill="#5B6C2E" stroke="#3D4A1C"/>
+          <circle cx="748" cy="276" r="6" fill="#FFFFFF"/>
+          <!-- price tag doodle next to raw collection -->
+          <path d="M702 266 L726 266 L736 276 L726 286 L702 286 Z" stroke="#545B44"/>
+          <circle cx="724" cy="276" r="2.5" stroke="#545B44"/>
+        </g>
+
+        <text class="s5cS" x="92" y="304" text-anchor="end">90%</text>
+        <text class="s5cS" x="92" y="244" text-anchor="end">92%</text>
+        <text class="s5cS" x="92" y="184" text-anchor="end">94%</text>
+        <text class="s5cS" x="92" y="124" text-anchor="end">96%</text>
+        <text class="s5cS" x="190" y="320" text-anchor="middle">600</text>
+        <text class="s5cS" x="350" y="320" text-anchor="middle">800</text>
+        <text class="s5cS" x="510" y="320" text-anchor="middle">1,000</text>
+        <text class="s5cS" x="670" y="320" text-anchor="middle">1,200</text>
+        <text class="s5cS" x="830" y="320" text-anchor="middle">1,400</text>
+        <text class="s5cA" x="470" y="338" text-anchor="middle">TRAINING ROWS USED</text>
+
+        <text class="s5cB" x="250" y="146" text-anchor="end">800, drop 110</text>
+        <text class="s5cB" x="250" y="162" text-anchor="end">475 (95.0%)</text>
+        <text class="s5cL" x="350" y="118" text-anchor="middle">clean the 800: 478 (95.6%)</text>
+        <text class="s5cB" x="633" y="88" text-anchor="middle">1,297, drop 143: 483 (96.6%)</text>
+        <text class="s5cL" x="760" y="128">collect + clean</text>
+        <text class="s5cS" x="760" y="144">478 (95.6%)</text>
+        <text class="s5cL" x="760" y="272">collect, raw</text>
+        <text class="s5cS" x="760" y="288">454 (90.8%)</text>
+        <text class="s5cS" x="470" y="148" text-anchor="middle">same score, 62% more rows</text>
+        <text class="s5cB" x="460" y="214" text-anchor="middle">same edit, opposite sign: hurts the 800, helps the 1,297</text>
+
+        <text class="s5cN" x="30" y="362">20 seeds: noisy collect +0.25 points; collect-and-clean 94.60 vs relabel 94.45. One digit = 0.2 points.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - cleaning the rows you have matched collecting and cleaning 62 percent more; dropping ambiguous rows only paid once there were rows to spare</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The bench's answer, and the sweep's<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Three routes, printed by the build-along below. Collect the 497 pool rows and use their labels as given: 454 correct, 90.8 percent, below the 457 baseline. Collect them and run confident learning over all 1,297: 478, 95.6 percent. Leave the pool alone and clean the 800: 478, 95.6 percent. On this seed, cleaning the 800 matched collecting 62 percent more rows and cleaning all of them.</p>
+        <p>The twenty-seed sweep says the same thing with more authority than one seed can. More rows with the same noise average +0.25 points over the baseline, and are worse than it in 8 of the 20 seeds. Collect-and-clean averages 94.60 against 94.45 for relabelling the 800 alone, a gap of under one test digit. Ng's slide said cleaning and doubling were about equally effective; here, with systematic noise, collecting without cleaning bought roughly nothing, and collecting with cleaning bought roughly what cleaning alone did. That is one bench and one kind of noise, not a law. The sweep is what you would run on your own data before quoting either.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Small data: pruning costs more when data is scarce<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>One more knob, from the session 4 bench: after relabelling, drop the ambiguous rows, the ones where no digit wins a majority of the ten out-of-fold neighbours. On the 800 that drops 110 rows and scores 475, 95.0 percent, worse than the 478 of relabelling alone; the twenty-seed mean agrees, 93.61 against 94.45. On the 1,297 it drops 143 rows and scores 483, 96.6 percent, the best score on the bench. The sweep did not run the 1,297 version, so read that 483 as one seed.</p>
+        <p>The mechanism is scarcity. Ambiguous rows sit on the boundary between digits, which is exactly where a nearest-neighbour model needs examples. With 800 rows, pruning 110 of them removes evidence the model cannot replace. With 1,297, there are enough clean boundary rows left that removing the muddled ones sharpens the boundary instead of thinning it. Ng's long-tail point is the same rule at scale: big-data problems with a long tail of rare events "are also small data problems" in the tail, and a pruning rule tuned on the head can starve the tail.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>What Ng's claim does and does not say<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The slide states the 500-example, 12-percent case as reasoning, and the curve on the next slide, clean against noisy labels from 250 to 1,500 examples, names no dataset. So it is a claim to test, not a result to cite. Two things the bench adds: the noise here is systematic, look-alike swaps drawn from the images that most resemble the other digit, which is the kind that more data reinforces rather than averages out; and the collection route only matches cleaning when the collected rows are cleaned too. If your noise is closer to random, new rows may do more than they did here. That is the reason to measure, not to assume.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>A competition that allowed only data.</strong> The 2021 Data-Centric AI Competition asked entrants to "improve a dataset given a fixed model", with techniques "such as fixing incorrect labels, adding examples that represent edge cases, apply data augmentation". All three of tonight's routes were on the menu. Submissions also carried a cap on the number of images, reported at 10,000 from participant write-ups rather than read on an official page; under a cap like that, every augmented or added row spends budget that a relabel does not.</p>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>What to ask for, if you lead the team.</strong> Before approving a collection budget, ask two questions. Where do the new labels come from: the same vendor and the same guideline that produced the current noise? If so, the new rows carry the same confusions, and on this bench they bought roughly nothing. And what is the clean-first number: the frozen model's score after cleaning the rows you already own? If collecting and cleaning does not clearly beat cleaning alone, the budget is buying rows, not accuracy.</p>
+    </div>
+  </section>
+
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Three routes, one frozen model</h2>
+      <span class="tag demo">★ 22 min · everyone builds</span>
+    </div>
+    <p class="lede">Five steps in numpy, continuing from session 3's script: the digits, the split, the declared plant, the four-fold votes and the confident-learning relabel <code>sug</code> are all already in memory. Every <code># output</code> line below is copied from the script's printed output. The test set is touched only by <code>score</code> and, once, in step 3, after the choice has been made.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 292" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three routes feed the same frozen kNN model and the same locked test set. Route one: the 71 training 9s, weakest by cross-validated agreement, get four one-pixel shifts, 284 rows; score 480 of 500. Route two: the 800 plus 497 pool rows with labels as given, no cleaning; score 454. Route three: the same 1,297 rows relabelled by confident learning; score 478. Relabelling the 800 alone also scores 478.">
+        <defs>
+          <filter id="s5dSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="54" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s5dHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s5dAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s5dH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s5dL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s5dS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s5dW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s5dV { font: 800 18px Inter, sans-serif; fill: #3D4A1C; }
+          .s5dA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s5dN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s5dH" x="30" y="26">THREE ROUTES, ONE FROZEN MODEL, ONE LOCKED TEST SET</text>
+        <text class="s5dA" x="40" y="52">WHERE THE ROWS COME FROM</text>
+        <text class="s5dA" x="290" y="52">THE EDIT</text>
+        <text class="s5dA" x="795" y="52" text-anchor="middle">OF 500</text>
+
+        <g filter="url(#s5dSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- sources -->
+          <rect x="40" y="64" width="210" height="44" rx="6" transform="rotate(-0.6 145 86)" fill="#F1F4E6"/>
+          <rect x="40" y="134" width="210" height="44" rx="6" transform="rotate(0.5 145 156)" fill="url(#s5dHc)"/>
+          <rect x="40" y="204" width="210" height="44" rx="6" transform="rotate(-0.4 145 226)" fill="url(#s5dHc)"/>
+          <!-- edits -->
+          <rect x="290" y="64" width="200" height="44" rx="6" transform="rotate(0.6 390 86)" fill="#FFFFFF"/>
+          <rect x="290" y="134" width="200" height="44" rx="6" transform="rotate(-0.5 390 156)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="290" y="204" width="200" height="44" rx="6" transform="rotate(0.4 390 226)" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M254 86 L282 86" marker-end="url(#s5dAr)"/>
+          <path d="M254 156 L282 156" marker-end="url(#s5dAr)"/>
+          <path d="M254 226 L282 226" marker-end="url(#s5dAr)"/>
+          <!-- frozen model -->
+          <rect x="560" y="60" width="130" height="192" rx="8" transform="rotate(0.3 625 156)" fill="#3D4A1C" stroke="#3D4A1C"/>
+          <rect x="642" y="74" width="16" height="13" rx="2" stroke="#FFFFFF"/>
+          <path d="M645 74 L645 69 C645 63 655 63 655 69 L655 74" stroke="#FFFFFF"/>
+          <path d="M494 86 C520 88 536 96 552 100" marker-end="url(#s5dAr)"/>
+          <path d="M494 156 L552 156" marker-end="url(#s5dAr)"/>
+          <path d="M494 226 C520 224 536 216 552 212" marker-end="url(#s5dAr)"/>
+          <!-- scores -->
+          <rect x="740" y="64" width="110" height="44" rx="6" transform="rotate(-0.8 795 86)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <rect x="740" y="134" width="110" height="44" rx="6" transform="rotate(0.7 795 156)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <rect x="740" y="204" width="110" height="44" rx="6" transform="rotate(-0.6 795 226)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M694 100 C710 96 720 90 732 88" marker-end="url(#s5dAr)"/>
+          <path d="M694 156 L732 156" marker-end="url(#s5dAr)"/>
+          <path d="M694 212 C710 216 720 222 732 224" marker-end="url(#s5dAr)"/>
+        </g>
+
+        <text class="s5dL" x="56" y="84">71 training 9s</text>
+        <text class="s5dS" x="56" y="100">weakest by CV agreement</text>
+        <text class="s5dL" x="56" y="154">800 + 497 pool rows</text>
+        <text class="s5dS" x="56" y="170">labels as given</text>
+        <text class="s5dL" x="56" y="224">800 + 497 pool rows</text>
+        <text class="s5dS" x="56" y="240">labels as given</text>
+
+        <text class="s5dL" x="306" y="84">four 1-px shifts</text>
+        <text class="s5dS" x="306" y="100">+284 rows, label 9</text>
+        <text class="s5dL" x="306" y="154">no cleaning</text>
+        <text class="s5dS" x="306" y="170">1,297 rows, 219 wrong</text>
+        <text class="s5dW" x="306" y="224">confident learning</text>
+        <text class="s5dW" x="306" y="240">relabel all 1,297</text>
+
+        <text class="s5dW" x="576" y="150">Frozen model</text>
+        <text class="s5dW" x="576" y="168">kNN, k = 10</text>
+
+        <text class="s5dV" x="754" y="93">480</text>
+        <text class="s5dS" x="798" y="92">96.0%</text>
+        <text class="s5dV" x="754" y="163">454</text>
+        <text class="s5dS" x="798" y="162">90.8%</text>
+        <text class="s5dV" x="754" y="233">478</text>
+        <text class="s5dS" x="798" y="232">95.6%</text>
+
+        <text class="s5dN" x="30" y="280">Route one starts from the relabelled 800. Relabelling the 800 alone also scores 478 of 500.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three routes, one model; the only route that bought nothing new was collecting without cleaning</figcaption>
+    </figure>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Rank the digits on training evidence only.</strong> Continue from session 3's script, steps 1 to 5, so <code>sug</code> (the confident-learning relabel), <code>folds</code> and <code>knn_votes</code> are in memory. Then re-run the four folds on the relabelled labels and count, per digit, how many rows the out-of-fold neighbours agree with. Ties go to the lower digit, so the choice is deterministic.</p>
+        <div class="prompt-box good"><span class="label">★ Step 1 · per-digit agreement, never the test set</span># continues from session 3, steps 1 to 5 (sug, V, folds, Xtr, knn_votes, confident_joint, score)
+
+lab = sug.copy()
+Vk = np.zeros((800, 10), dtype=int)
+for f in range(4):
+    hold = folds == f
+    Vk[hold] = knn_votes(Xtr[~hold], lab[~hold], Xtr[hold])
+agree = [(int((Vk[lab == d].argmax(1) == d).sum()), int((lab == d).sum())) for d in range(10)]
+for d, (a, t) in enumerate(agree):
+    print(d, f"{a}/{t}", f"{100*a/t:.1f}%")
+weakest = min(range(10), key=lambda d: (agree[d][0] / agree[d][1], d))
+print("weakest:", weakest)
+# 0 80/80 100.0%
+# 1 71/81 87.7%
+# 2 77/79 97.5%
+# 3 67/74 90.5%
+# 4 69/81 85.2%
+# 5 76/76 100.0%
+# 6 87/88 98.9%
+# 7 76/84 90.5%
+# 8 74/86 86.0%
+# 9 57/71 80.3%
+# weakest: 9</div>
+      </div>
+      <div class="step">
+        <p><strong>Shift every training 9 by one pixel, four ways.</strong> Right, left, down and up, with zeros filling the edge that moves in. Every copy keeps the label 9, which is only safe because the invariance holds and because step 1 ran on the relabelled rows.</p>
+        <div class="prompt-box good"><span class="label">★ Step 2 · four shifts of the weakest digit</span>def shift(img, dx, dy):
+    a = img.reshape(8, 8)
+    out = np.zeros_like(a)
+    for r in range(8):
+        for c in range(8):
+            if 0 &lt;= r - dy &lt; 8 and 0 &lt;= c - dx &lt; 8:
+                out[r, c] = a[r - dy, c - dx]
+    return out.reshape(64)
+
+src = np.where(lab == weakest)[0]
+extra = np.array([shift(Xtr[i], dx, dy) for i in src for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))])
+X_aug = np.vstack([Xtr, extra])
+g_aug = np.concatenate([lab, np.full(len(extra), weakest)])
+print("added:", len(extra), "rows")
+print("relabel:", score(Xtr, lab), "| relabel + shifts:", score(X_aug, g_aug), "of 500")
+# added: 284 rows
+# relabel: 478 | relabel + shifts: 480 of 500</div>
+      </div>
+      <div class="step">
+        <p><strong>Now, and only now, read the slice on the test set.</strong> The choice is made and written down; the test set reports what it did to the 9s. Three more of the 65 test 9s are right. That is three images on one seed: a reading, not a result.</p>
+        <div class="prompt-box good"><span class="label">★ Step 3 · the slice on test, after the choice</span>def per_digit(Xa, ga):
+    p = knn_predict(Xa, ga, X[test])
+    return [int(((p == d) &amp; (y[test] == d)).sum()) for d in range(10)]
+print("test 9s:", per_digit(Xtr, lab)[9], "-&gt;", per_digit(X_aug, g_aug)[9], "of", int((y[test] == 9).sum()))
+# test 9s: 56 -&gt; 59 of 65</div>
+      </div>
+      <div class="step">
+        <p><strong>Collect or clean.</strong> Give the 497 pool rows their own four folds, pool them with the 800, and run the same out-of-sample votes and confident joint over all 1,297. Then score three training sets on the frozen model: the collected rows as given, the collected rows cleaned, and the 800 cleaned with the pool left alone.</p>
+        <div class="prompt-box good"><span class="label">★ Step 4 · collect raw, collect and clean, clean the 800</span>folds_pool = np.arange(len(pool)) % 4
+rng.shuffle(folds_pool)
+X_all = np.vstack([Xtr, X[pool]])
+g_all = np.concatenate([g_train, g_pool])
+f_all = np.concatenate([folds, folds_pool])
+V_all = np.zeros((len(g_all), 10), dtype=int)
+for f in range(4):
+    hold = f_all == f
+    V_all[hold] = knn_votes(X_all[~hold], g_all[~hold], X_all[hold])
+_, sug_all = confident_joint(V_all, g_all)
+print("collect, raw:", score(X_all, g_all), "| collect and clean:", score(X_all, sug_all), "| clean the 800 only:", score(Xtr, lab))
+# collect, raw: 454 | collect and clean: 478 | clean the 800 only: 478</div>
+      </div>
+      <div class="step">
+        <p><strong>Drop the ambiguous rows at two sizes.</strong> A row is ambiguous when no digit gets more than five of its ten out-of-fold votes. Drop those after relabelling, once on the 800 and once on the 1,297, and compare each with its own relabel-only score from step 4.</p>
+        <div class="prompt-box good"><span class="label">★ Step 5 · the same pruning rule, scarce and less scarce</span>amb800 = V.max(1) &lt;= 5
+amb_all = V_all.max(1) &lt;= 5
+print("800 relabel, drop", int(amb800.sum()), "ambiguous:", score(Xtr[~amb800], lab[~amb800]))
+print("1297 relabel, drop", int(amb_all.sum()), "ambiguous:", score(X_all[~amb_all], sug_all[~amb_all]))
+# 800 relabel, drop 110 ambiguous: 475
+# 1297 relabel, drop 143 ambiguous: 483</div>
+      </div>
+    </div>
+
+    <table class="clean" style="margin-top:1.2rem">
+      <tr><th>Same frozen model, same 500 test digits</th><th>Training rows</th><th>Correct</th><th>Accuracy</th></tr>
+      <tr><td>Relabel the 800 (session 4's first edit)</td><td>800</td><td>478</td><td><strong>95.6%</strong></td></tr>
+      <tr><td>Relabel, then shift the 9s four ways</td><td>1,084</td><td>480</td><td><strong>96.0%</strong></td></tr>
+      <tr><td>Collect the 497, labels as given</td><td>1,297</td><td>454</td><td><strong>90.8%</strong></td></tr>
+      <tr><td>Collect the 497, clean all 1,297</td><td>1,297</td><td>478</td><td><strong>95.6%</strong></td></tr>
+      <tr><td>Relabel the 800, drop 110 ambiguous</td><td>690</td><td>475</td><td><strong>95.0%</strong></td></tr>
+      <tr><td>Relabel the 1,297, drop 143 ambiguous</td><td>1,154</td><td>483</td><td><strong>96.6%</strong></td></tr>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Read the table with the sweep beside it.</strong> The shift's +0.4 is two test digits on one seed and +0.07 on the twenty-seed mean. The clean-the-800 and collect-and-clean rows tie here and sit 0.15 points apart on the sweep. The one gap on this table that survives any reading is the third row: collecting without cleaning costs you the cleaning you skipped.</p>
+    </div>
+  </section>
+
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 6</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li><strong>Find your own weakest slice on training data only.</strong> Pick a characteristic you can name (a class, a source, a region), score each slice with out-of-fold predictions on the training set, and write down the weakest before you open any test or validation report.</li>
+      <li><strong>Write the invariance your augmentation assumes</strong>, as one sentence, and one real input where it fails. If you cannot find a failure, try harder: flips, rotations, crops and colour shifts all have one.</li>
+      <li><strong>Price collecting 500 more rows against cleaning.</strong> Put a cost and a lead time on each: new rows from your current labelling source, and a relabel pass over the flagged rows you already have. Then ask which one you have a clean-first number for.</li>
+      <li><strong>Bring your best knob combination from session 4</strong> to the capstone, with its score and the twenty-seed caution in mind. Session 6 turns it into a spec.</li>
+    </ol>
+  </section>
+
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <p>Clear all three and session 5 gets stamped in your passport.</p>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · Why is the weakest digit chosen by cross-validated agreement on the relabelled training set, and not by per-digit test accuracy?</p>
+      <button class="qopt" type="button">A · Because test accuracy per digit cannot be computed with a kNN model</button>
+      <button class="qopt" type="button">B · Because choosing the slice is a modelling decision; a test set that makes the choice and then scores it is no longer a measurement, while out-of-fold agreement on training rows gives an honest signal without touching the test set</button>
+      <button class="qopt" type="button">C · Because the training set is larger, so its ranking is always the same as the test set's</button>
+      <button class="qopt" type="button">D · Because the MIT notes recommend never scoring slices at all</button>
+      <p class="qwhy">Evaluation examples "should only be used for computing evaluation scores, not for any modeling decisions." Out-of-fold votes on training rows find the 9s at 80.3 percent, and the test set reads the result once, afterwards, as 56 to 59 of 65.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="3">
+      <p class="qtext">2 · Shifting the 9s bought +0.4 points on the shipped seed but +0.07 on the twenty-seed average. What does that say?</p>
+      <button class="qopt" type="button">A · The shipped seed is broken and should be discarded</button>
+      <button class="qopt" type="button">B · Augmentation never helps, so the shift should be removed from the spec</button>
+      <button class="qopt" type="button">C · The shift works on 9s but hurts every other digit</button>
+      <button class="qopt" type="button">D · The +0.4 is two test digits, inside one seed's noise; the average says augmentation added a little coverage of an invariance, which rarely moves the number when the main problem was wrong labels and the transform is coarse</button>
+      <p class="qwhy">One test digit is 0.2 points, so a one-seed gain of two digits is not a claim. The sweep is. By the time the shift runs, relabelling has removed most of what was hurting the 9s, and a one-pixel move at 8 by 8 is a coarse transform that adds little the neighbours did not already cover.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · Dropping ambiguous rows after relabelling takes the 800 from 478 to 475, but the 1,297 up to 483. Why?</p>
+      <button class="qopt" type="button">A · Ambiguous rows sit on the boundary between digits, where a nearest-neighbour model needs examples; with 800 rows, removing 110 of them thins the boundary, while with 1,297 enough clean boundary rows remain that removing the muddled ones sharpens it</button>
+      <button class="qopt" type="button">B · The 1,297 contains no wrong labels, so nothing it drops matters</button>
+      <button class="qopt" type="button">C · The ambiguity threshold is different for the two sizes</button>
+      <button class="qopt" type="button">D · The frozen model was retuned for the larger set</button>
+      <p class="qwhy">Same rule (no digit above five of ten votes), same model, different amounts of data around it. Pruning costs more when data is scarce. The 800 result agrees with the twenty-seed mean, 93.61 against 94.45; the 1,297 result is one seed and should be checked before it goes in a spec.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">MIT, Introduction to Data-Centric AI: data-centric evaluation (2024)</span><span class="note">The slice definition, per-slice held-out loss, hidden slices by loss sort and clustering, the four remedies and the evaluation-data rule, read from the lecture notes</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">MIT, Introduction to Data-Centric AI: encoding human priors (2023)</span><span class="note">Invariance, when augmentation helps, and Mixup mixing the label too, read from the lecture notes</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng, "MLOps: From Model-centric to Data-centric AI" (2021)</span><span class="note">The 500-example, 12-percent claim and the &lt;10,000 line, quoted as a claim with no dataset named; change x or change y; the long tail, read from the slide deck</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Buolamwini, Gebru (2018), Gender Shades, PMLR 81</span><span class="note">Up to 34.7 percent error for darker-skinned females against a maximum of 0.8 percent for lighter-skinned males, read from the abstract</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Every bench and build-along number</span><span class="note">Computed from the UCI Optical Recognition of Handwritten Digits (Alpaydin and Kaynak, 1998) with a constructed, declared noise plant; the twenty-seed means come from the same reference</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">MIT lectures on outliers, class imbalance and distribution shift</span><span class="note">Named as the neighbours of slicing, not taught</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Every fact on this page, and its verification tier, is recorded in the course's source map.</p>
+  </section>
+
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 5 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Choose on training, report on test</b><span>Weak slice by out-of-fold agreement; the test set reads the result once, after.</span></div>
+      <div class="cheat-item"><b>Hidden slices</b><span>Sort held-out training rows by loss, cluster the top, name the cluster.</span></div>
+      <div class="cheat-item"><b>Augmentation = an invariance</b><span>Write it as a sentence, find the input where it fails, keep the label only if it survives.</span></div>
+      <div class="cheat-item"><b>Clean, then augment</b><span>Shifting before cleaning copies every wrong label four times.</span></div>
+      <div class="cheat-item"><b>Collect or clean</b><span>Raw collect 454, collect and clean 478, clean the 800 only 478.</span></div>
+      <div class="cheat-item"><b>Pruning and scarcity</b><span>Drop ambiguous: 475 on the 800, 483 on the 1,297. Scarce data needs its boundary rows.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>Five sessions of edits need one document that makes them repeatable. Session 6 is the capstone: beat the baseline with data edits only, then write the data-edit spec that another team could run, with the frozen model and seed, the test-set rule, an edit log per row, the guideline version, a precision audit on a sample of flags, a stopping rule, and a list of what not to claim. Bring your best knob combination.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 5 of 6 · learn-data-centric-ai-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="04-the-data-edit-bench.html">← Prev: The data-edit bench</a> &nbsp;·&nbsp; <a href="06-the-data-edit-spec.html">Next: The data-edit spec →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=3"></script>
+</body>
+</html>

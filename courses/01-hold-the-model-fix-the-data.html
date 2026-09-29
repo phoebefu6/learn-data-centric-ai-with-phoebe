@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 1 of 6. An AI system is code plus data. Freeze the code, work the data, and measure every edit on a test set nobody touches. Built on 1,797 real handwritten digits with a declared label-noise plant.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Hold the model, fix the data - learn data-centric ai with phoebe">
+<meta property="og:description" content="Session 1 of 6. Same frozen model, same clean test set: 91.4 percent on the labels you were given, 97.8 percent on the true ones, and 90.8 percent if you just add more rows from the same labellers.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/courses/01-hold-the-model-fix-the-data.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Hold the model, fix the data - learn data-centric ai with phoebe">
+<meta name="twitter:description" content="Session 1 of 6. Freeze the model, plant declared noise, measure the gap the data is costing you.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 1 · Hold the model, fix the data - learn data-centric ai with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=3">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-centric-ai-with-phoebe</a> / Session 1 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data-Centric AI with Phoebe · Session 1 of 6</div>
+    <h1>Hold the model, <span class="accent">fix the data</span></h1>
+    <p class="sub">Most machine learning practice treats the dataset as given and spends its effort on the model. Data-centric work flips the loop: freeze the model, freeze the test set, and make every improvement an edit to the training rows or their labels. Tonight we set up that discipline on 1,797 real handwritten digits. One frozen model, one clean test set, one declared label-noise plant, and three numbers that frame the next five sessions: what the given labels cost, what the true labels would buy, and what happens when the team simply collects more rows from the same labellers.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">ML engineers, data scientists, labelling leads</span>
+      <span class="chip audience">Python, numpy, scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Two loops and the evidence</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: freeze, plant, measure</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we start</h2>
+    </div>
+    <p class="lede">You have already done the error analysis. Someone has looked at a hundred mistakes, filled the spreadsheet, and found that a large share of them trace back to the data: labels that are wrong, labels that two people would write differently, and whole kinds of input the training set barely covers. The question now is what to do about it without touching the model, and how to prove each change helped. That starts with a setup where only the data can move.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">★ Build-along = run the code yourself</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A frozen model, a locked test set and a declared noise plant on real digits, the three numbers that bound every data edit (91.4 percent given, 97.8 percent true, 90.8 percent with more of the same), and the habit of asking "what did this edit do on the untouched test set?" before anyone argues about a new architecture.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers code plus data</span>
+      <h2>Two loops, one system</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">Andrew Ng's 2021 talk that named the movement opens with one line: an AI system is code plus data. Both halves can be iterated. The model-centric loop holds the data fixed and changes the code; the data-centric loop holds the code fixed and changes the data. Neither is new. What is new is treating the second loop as an engineering discipline with its own tools and its own measurements, instead of a chore done once before the real work.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two loops side by side. Left, the model-centric loop: a pinned data box, and an arrow circling a code box that is changed each turn. Right, the data-centric loop: a pinned code box, and an arrow circling a data box whose labels and rows are changed each turn. Both loops end at the same locked test set, which is only ever scored.">
+        <defs>
+          <filter id="s1aSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s1aHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s1aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s1aH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s1aL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s1aS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s1aB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s1aW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s1aA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s1aN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s1aH" x="30" y="26">AI SYSTEM = CODE + DATA. ONE HALF IS PINNED, THE OTHER TURNS</text>
+
+        <g filter="url(#s1aSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- left loop: data pinned, code turns -->
+          <rect x="50" y="70" width="150" height="60" rx="8" transform="rotate(-0.6 125 100)" fill="url(#s1aHc)"/>
+          <path d="M125 62 L125 50 M118 50 L132 50" stroke="#545B44"/>
+          <rect x="230" y="70" width="150" height="60" rx="8" transform="rotate(0.5 305 100)" fill="#F1F4E6"/>
+          <path d="M250 150 C260 200 350 200 362 150" marker-end="url(#s1aAr)"/>
+          <path d="M362 62 C352 40 262 40 252 62" marker-end="url(#s1aAr)"/>
+          <!-- right loop: code pinned, data turns -->
+          <rect x="500" y="70" width="150" height="60" rx="8" transform="rotate(0.5 575 100)" fill="#FFFFFF"/>
+          <path d="M575 62 L575 50 M568 50 L582 50" stroke="#545B44"/>
+          <rect x="680" y="70" width="150" height="60" rx="8" transform="rotate(-0.5 755 100)" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M700 150 C710 200 800 200 812 150" marker-end="url(#s1aAr)"/>
+          <path d="M812 62 C802 40 712 40 702 62" marker-end="url(#s1aAr)"/>
+          <!-- shared locked test set -->
+          <rect x="330" y="222" width="220" height="44" rx="8" transform="rotate(-0.3 440 244)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M306 190 C310 214 318 232 326 238" marker-end="url(#s1aAr)"/>
+          <path d="M760 192 C770 262 640 262 556 252" marker-end="url(#s1aAr)"/>
+          <!-- padlock doodle -->
+          <rect x="344" y="236" width="16" height="13" rx="2" stroke="#3D4A1C"/>
+          <path d="M347 236 L347 231 C347 225 357 225 357 231 L357 236" stroke="#3D4A1C"/>
+        </g>
+
+        <text class="s1aA" x="215" y="222" text-anchor="middle">MODEL-CENTRIC</text>
+        <text class="s1aS" x="215" y="238" text-anchor="middle">change the code, retrain</text>
+        <text class="s1aA" x="640" y="222" text-anchor="middle">DATA-CENTRIC</text>
+        <text class="s1aS" x="640" y="238" text-anchor="middle">edit the data, retrain</text>
+        <text class="s1aL" x="68" y="96">Data</text>
+        <text class="s1aS" x="68" y="114">pinned: rows, labels</text>
+        <text class="s1aL" x="248" y="96">Code</text>
+        <text class="s1aS" x="248" y="114">new layer, new loss</text>
+        <text class="s1aL" x="518" y="96">Code</text>
+        <text class="s1aS" x="518" y="114">pinned: kNN, k = 10</text>
+        <text class="s1aW" x="698" y="96">Data</text>
+        <text class="s1aW" x="698" y="114">relabel, remove, add</text>
+        <text class="s1aL" x="368" y="241">The test set</text>
+        <text class="s1aS" x="368" y="257">only ever scored, never edited</text>
+
+        <text class="s1aN" x="30" y="296">Ng: "Hold the data fixed and iteratively improve the code/model" against "hold the code fixed and iteratively improve the data".</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - both loops are scored on the same locked test set; the only difference is which half is allowed to move</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The two views, in Ng's own words<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The slide that frames the whole field puts two views side by side. The model-centric view: "Collect what data you can, and develop a model good enough to deal with the noise in the data." The data-centric view: "The consistency of the data is paramount. Use tools to improve the data quality; this will allow multiple models to do well."</p>
+        <p>The last clause is the practical one. A model tuned to survive a messy dataset is tuned to that mess. A dataset cleaned so that labels are consistent makes the next model, and the one after it, better too. That is why the edits you make in these six sessions are written down as a spec at the end: they outlive any one model.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What "holding the model" actually means<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Holding the model fixed is stricter than it sounds. The architecture, every hyperparameter, the training seed, the preprocessing and the evaluation metric are all frozen before the first data edit. If any of them moves, you can no longer say which change bought the gain. Tonight the model is k-nearest neighbours with k = 10 and squared distance on the raw pixels, chosen because it has no training randomness at all: the same rows always give the same predictions, in Python and in your browser, to the last test image.</p>
+        <p>The test set is frozen harder still. It is never relabelled, never filtered, and never used to choose an edit. The MIT data-centric AI course puts it bluntly: evaluation examples "should only be used for computing evaluation scores, not for any modeling decisions." Choosing which slice to augment by looking at test accuracy is a modelling decision, and session 5 shows how to make it on the training set instead.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where the name came from, and what is not new<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Ng gave the talk "MLOps: From Model-centric to Data-centric AI" at a DeepLearning.AI live event in March 2021, and the same year DeepLearning.AI and Landing AI ran the Data-Centric AI Competition that inverted the usual format. MIT's course "Introduction to Data-Centric AI", taught by Anish Athalye, Curtis Northcutt and Jonas Mueller, turned the idea into lectures and labs in 2023 and 2024, and defines the field as treating dataset improvement as "a systematic engineering discipline" rather than "ad hoc trial/error and intuition".</p>
+        <p>None of the techniques are new. Label-noise research, repeated labelling and data augmentation all predate 2021 by decades. What the name changed is where the effort is booked: a data edit becomes a versioned, measured change with a reviewer, the same way a code change is.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Steel sheets, 39 kinds of defect.</strong> Ng's opening case is a Landing AI project inspecting steel for defects: a baseline at 76.2 percent accuracy against a 90.0 percent target. The team asked the room whether to improve the code or the data, and then showed what each had bought. Part 2 has the table, including the two projects where the answer was much less dramatic.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the evidence</span>
+      <h2>What the data loop bought, and where it barely moved</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">The famous number is the steel project: model-centric work added nothing, data-centric work added 16.9 points. It is usually quoted alone. The same slide carries two more projects, and they tell a more useful story: the data loop won all three, but by 16.9, 3.06 and 0.4 points. A method that sometimes buys half a point is still a method; it is not magic, and the size of the gain depends on how much of the error was in the data to begin with.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Paired bars for three projects on Ng's slide. Steel defect detection, baseline 76.2 percent: model-centric work added 0 points, data-centric added 16.9 points to 93.1 percent. Solar panel, baseline 75.68 percent: model-centric added 0.04, data-centric added 3.06 to 78.74. Surface inspection, baseline 85.05 percent: model-centric added 0.00, data-centric added 0.4 to 85.45.">
+        <defs>
+          <filter id="s1bSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="23" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s1bHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#A63F1C" stroke-width="1" opacity=".6"/></pattern>
+        </defs>
+        <style>
+          .s1bH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s1bL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s1bS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s1bB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s1bV { font: 800 13px Inter, sans-serif; fill: #3D4A1C; }
+          .s1bN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s1bH" x="30" y="26">POINTS OF ACCURACY GAINED, SAME BASELINE, TWO KINDS OF WORK</text>
+        <text class="s1bS" x="30" y="44">scale: 480px = 16.9 points · moss = changed the code · rust hatching = changed the data</text>
+
+        <g filter="url(#s1bSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M260 60 L260 268" stroke="#CCD3BC"/>
+          <!-- steel -->
+          <rect x="260" y="72" width="3" height="22" rx="1" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <rect x="260" y="100" width="480" height="24" rx="4" fill="url(#s1bHc)" stroke="#A63F1C"/>
+          <!-- solar -->
+          <rect x="260" y="148" width="3" height="22" rx="1" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <rect x="260" y="176" width="87" height="24" rx="4" fill="url(#s1bHc)" stroke="#A63F1C"/>
+          <!-- surface -->
+          <rect x="260" y="224" width="3" height="22" rx="1" fill="#5B6C2E" stroke="#5B6C2E"/>
+          <rect x="260" y="252" width="12" height="24" rx="3" fill="url(#s1bHc)" stroke="#A63F1C"/>
+        </g>
+
+        <text class="s1bL" x="244" y="92" text-anchor="end">Steel defect detection</text>
+        <text class="s1bS" x="244" y="108" text-anchor="end">baseline 76.2%</text>
+        <text class="s1bS" x="274" y="88">+0 points (76.2%)</text>
+        <text class="s1bV" x="600" y="117" text-anchor="middle">+16.9 to 93.1%</text>
+        <text class="s1bL" x="244" y="168" text-anchor="end">Solar panel</text>
+        <text class="s1bS" x="244" y="184" text-anchor="end">baseline 75.68%</text>
+        <text class="s1bS" x="274" y="164">+0.04 (75.72%)</text>
+        <text class="s1bB" x="358" y="193">+3.06 to 78.74%</text>
+        <text class="s1bL" x="244" y="244" text-anchor="end">Surface inspection</text>
+        <text class="s1bS" x="244" y="260" text-anchor="end">baseline 85.05%</text>
+        <text class="s1bS" x="274" y="240">+0.00 (85.05%)</text>
+        <text class="s1bB" x="284" y="269">+0.4 to 85.45%</text>
+
+        <text class="s1bN" x="30" y="304">From one slide of Ng's 2021 talk. The data loop won all three; the size of the win is set by how much error was in the data.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - quote the whole table, not the steel row: 16.9, 3.06 and 0.4 points</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Label errors sit in the test sets too<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Northcutt, Athalye and Mueller ran confident learning over the test sets of ten of the most-used benchmarks, then had every flagged item checked by five crowd workers. They estimate "an average of at least 3.3% errors across the 10 datasets", with at least 6 percent of the ImageNet validation set mislabelled. The rate is not uniform: 0.15 percent on MNIST, 5.85 percent on CIFAR-100, 10.12 percent on QuickDraw. Carefully curated datasets were cleaner; datasets built by automated collection were not.</p>
+        <p>The consequence is the one that matters for a practitioner. On ImageNet with corrected labels, ResNet-18 outperforms ResNet-50 if the share of originally mislabelled test examples rises by just 6 percent. The model you would have shipped depends on whether your test labels are right, which is why the test set here is clean by construction and why session 6 asks you to audit yours.</p>
+        <table class="clean">
+          <tr><th>Test set</th><th>Size</th><th>Flagged by the algorithm</th><th>Confirmed by humans</th><th>Estimated error</th></tr>
+          <tr><td>MNIST</td><td>10,000</td><td>100</td><td>15</td><td>0.15%</td></tr>
+          <tr><td>CIFAR-10</td><td>10,000</td><td>275</td><td>54</td><td>0.54%</td></tr>
+          <tr><td>CIFAR-100</td><td>10,000</td><td>2,235</td><td>585</td><td>5.85%</td></tr>
+          <tr><td>ImageNet (validation)</td><td>50,000</td><td>5,440</td><td>2,916</td><td>5.83%</td></tr>
+          <tr><td>IMDB</td><td>25,000</td><td>1,310</td><td>725</td><td>2.90%</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>What the competition inverted<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The Data-Centric AI Competition page states the inversion plainly: in most competitions you build a model for a fixed dataset; here you "improve a dataset given a fixed model", with techniques "such as fixing incorrect labels, adding examples that represent edge cases, apply data augmentation". Submissions closed on 4 September 2021 and were scored on accuracy. The task was a noisy set of handwritten Roman numerals. The fixed model is reported as a cut-down ResNet50 on 32 by 32 images, with a starting set of about 1,500 images and a cap of 10,000; those three details come from participants' write-ups, not from an official page read for this session.</p>
+        <p>Tonight's setup is the same shape on Arabic digits: a model nobody may touch, a noisy training set, a clean test set, and a score.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>A benchmark that picks the wrong model.</strong> If a team compares two vendors' models on a test set where 6 percent of labels are wrong, the ranking can flip with the fix. Northcutt and colleagues show it on public benchmarks with public models; the same thing happens silently on an internal test set that was labelled once, in a hurry, three years ago.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers where the work starts</span>
+      <h2>Start after the errors are found</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">Data-centric work is the second half of a loop. The first half, looking at the model's mistakes and sorting them by cause, is error analysis, and it has its own discipline: the spreadsheet of a hundred errors, the dev sets you look at and the ones you do not, the split between bias and variance. Those live in <a href="https://phoebefu6.github.io/learn-ml-strategy-with-phoebe/courses/p3-error-analysis-spreadsheet.html">ML Strategy, sessions p3 to p5 ↗</a>. The work here picks up at the moment the sheet says "a lot of this is the data" and asks: which edit, and how do we know it worked?</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A pipeline. On the left, faded, the error-analysis sheet from ML Strategy, whose data-caused rows feed four edit cards: relabel a row, remove a row, add targeted rows, and rewrite the label definition. All four feed the same frozen model, which is scored on the locked test set. A dashed arrow from the score loops back to the edit cards, never to the model.">
+        <defs>
+          <filter id="s1cSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="31" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s1cHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s1cAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s1cH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s1cL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s1cS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s1cB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s1cW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s1cN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s1cH" x="30" y="26">THE DATA LOOP STARTS WHERE THE ERROR SHEET ENDS</text>
+
+        <g filter="url(#s1cSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- faded error sheet -->
+          <rect x="30" y="60" width="170" height="150" rx="6" transform="rotate(-1 115 135)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <path d="M44 88 L186 88 M44 110 L186 110 M44 132 L186 132 M44 154 L186 154 M44 176 L186 176" stroke="#CCD3BC"/>
+          <path d="M44 132 L186 132" stroke="#A63F1C" stroke-width="3"/>
+          <!-- four edit cards -->
+          <rect x="250" y="54" width="190" height="36" rx="6" transform="rotate(-1.5 345 72)" fill="#F1F4E6"/>
+          <rect x="252" y="100" width="190" height="36" rx="6" transform="rotate(1 347 118)" fill="#F1F4E6"/>
+          <rect x="250" y="146" width="190" height="36" rx="6" transform="rotate(-0.8 345 164)" fill="#F1F4E6"/>
+          <rect x="252" y="192" width="190" height="36" rx="6" transform="rotate(1.2 347 210)" fill="#F1F4E6"/>
+          <path d="M206 134 L242 134" marker-end="url(#s1cAr)"/>
+          <!-- frozen model -->
+          <rect x="500" y="106" width="140" height="60" rx="8" transform="rotate(0.4 570 136)" fill="#3D4A1C" stroke="#3D4A1C"/>
+          <path d="M446 72 C476 80 480 110 494 124" marker-end="url(#s1cAr)"/>
+          <path d="M448 118 L494 132" marker-end="url(#s1cAr)"/>
+          <path d="M446 164 L494 144" marker-end="url(#s1cAr)"/>
+          <path d="M448 210 C478 200 482 170 494 152" marker-end="url(#s1cAr)"/>
+          <!-- test set -->
+          <rect x="690" y="106" width="160" height="60" rx="8" transform="rotate(-0.4 770 136)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M646 136 L682 136" marker-end="url(#s1cAr)"/>
+          <!-- loop back to edits, never to the model -->
+          <path d="M770 174 C770 262 420 268 400 236" stroke="#A63F1C" stroke-dasharray="6 5" marker-end="url(#s1cAr)"/>
+        </g>
+
+        <text class="s1cS" x="48" y="80">the error sheet</text>
+        <text class="s1cB" x="48" y="148">"label wrong" row</text>
+        <text class="s1cS" x="48" y="228">ML Strategy, p3 to p5</text>
+        <text class="s1cL" x="262" y="77">Relabel a row</text>
+        <text class="s1cL" x="264" y="123">Remove a row</text>
+        <text class="s1cL" x="262" y="169">Add targeted rows</text>
+        <text class="s1cL" x="264" y="215">Rewrite the label rule</text>
+        <text class="s1cW" x="514" y="132">Frozen model</text>
+        <text class="s1cW" x="514" y="150">kNN, k = 10</text>
+        <text class="s1cL" x="704" y="132">Locked test set</text>
+        <text class="s1cS" x="704" y="150">500 digits, scored only</text>
+        <text class="s1cB" x="590" y="276" text-anchor="middle">the score picks the next edit, never a new model</text>
+
+        <text class="s1cN" x="30" y="306">Ng's loop, in his words: change inputs x (augment, generate, collect) or give a more consistent definition of labels y.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - four kinds of edit, one frozen model, and a loop that returns to the data every time</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The four edits, and which session owns each<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Rewrite the label rule</strong> when two careful people would label the same example differently. The fix is the guideline, not the row, and session 2 is about measuring that disagreement before arguing about it. <strong>Relabel or remove a row</strong> when the label is simply wrong. Session 3 builds the detector that finds those rows without reading all of them, and session 4 measures what each choice buys. <strong>Add targeted rows</strong>, collected or augmented, when a kind of input is thin in the training set. Session 5 is about finding that slice without peeking at the test set, and about when collecting more beats cleaning what you have.</p>
+        <p>Ng's closing checklist names the same four properties: good data is "defined consistently", has "good coverage of inputs x", has "timely feedback from production data", and is "sized appropriately". The third is monitoring data in production, and <a href="https://phoebefu6.github.io/learn-data-observability-with-phoebe/">Data Observability ↗</a> owns it.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why small data is where this pays most<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Ng's slide makes a strong claim: with 500 examples of which 12 percent are noisy, cleaning the noise and doubling the set to 1,000 are "about equally effective", and "there is significant room for improvement in problems with &lt;10,000 examples". It is stated as theory, with a clean-against-noisy curve on the next slide that names no dataset. Treat it as a hypothesis to test on your own data, which is exactly what the build-along below and session 5 do. He adds that big-data problems with a long tail of rare events, web search, self-driving and recommenders, "are also small data problems" in the tail.</p>
+      </div>
+    </details>
+
+    <div class="callout tip">
+      <p><strong>What to ask for, if you lead the team.</strong> Before approving a new architecture, ask for three numbers on a test set that has not been touched: the current model on the labels you have, the same model on a hand-corrected sample, and the same model with the extra data the team is asking for. If the second gap is larger than the third, the next sprint is a data sprint.</p>
+    </div>
+  </section>
+
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Freeze the model, plant the noise, measure the gap</h2>
+      <span class="tag demo">★ 22 min · everyone builds</span>
+    </div>
+    <p class="lede">Five steps in numpy and scikit-learn on the real UCI handwritten digits. Every number printed below is what the code produces; the same split, plant and model run in your browser on the session 4 bench, and a separate reference implementation agrees with it to the last test image.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The setup. 1,797 real digits are split once, with seed 20210921, into 500 test images that are never relabelled, 800 training images of which 133 carry a planted wrong label, and a pool of 497 more with the same plant. On the right, two real training rows from the plant: a 7 given the label 1, and a 1 given the label 7.">
+        <defs>
+          <filter id="s1dSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="41" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s1dHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s1dAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s1dH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s1dL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s1dS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s1dB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s1dV { font: 800 16px Inter, sans-serif; fill: #3D4A1C; }
+          .s1dN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s1dH" x="30" y="26">ONE SPLIT, FROZEN FOREVER</text>
+        <text class="s1dH" x="690" y="26">TWO REAL PLANTED ROWS</text>
+
+        <g filter="url(#s1dSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M40 220 C56 140 120 110 170 130 C210 146 226 190 230 220 Z" fill="url(#s1dHc)"/>
+          <rect x="300" y="54" width="220" height="54" rx="8" transform="rotate(-0.5 410 81)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <rect x="300" y="126" width="220" height="54" rx="8" transform="rotate(0.4 410 153)" fill="#F1F4E6"/>
+          <rect x="300" y="198" width="220" height="54" rx="8" transform="rotate(-0.3 410 225)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <path d="M226 150 C250 110 268 90 292 84" marker-end="url(#s1dAr)"/>
+          <path d="M234 168 L292 156" marker-end="url(#s1dAr)"/>
+          <path d="M228 200 C252 212 270 222 292 224" marker-end="url(#s1dAr)"/>
+          <!-- planted flip marks on the training box -->
+          <path d="M492 136 L508 136 M492 146 L508 146 M492 156 L504 156" stroke="#A63F1C"/>
+          <!-- thumbnail frames -->
+          <rect x="694" y="90" width="68" height="68" rx="4" fill="#FFFFFF" stroke="#A63F1C"/>
+          <rect x="774" y="90" width="68" height="68" rx="4" fill="#FFFFFF" stroke="#A63F1C"/>
+        </g>
+        <g stroke="none"><path d="M714 117h7v7h-7zM714 131h7v7h-7z" fill="#1E2413" fill-opacity="0.06"/><path d="M742 131h7v7h-7zM728 145h7v7h-7z" fill="#1E2413" fill-opacity="0.12"/><path d="M714 145h7v7h-7z" fill="#1E2413" fill-opacity="0.25"/><path d="M714 96h7v7h-7z" fill="#1E2413" fill-opacity="0.31"/><path d="M714 103h7v7h-7zM721 117h7v7h-7zM742 124h7v7h-7z" fill="#1E2413" fill-opacity="0.38"/><path d="M735 96h7v7h-7zM728 138h7v7h-7z" fill="#1E2413" fill-opacity="0.44"/><path d="M735 117h7v7h-7zM714 124h7v7h-7zM735 131h7v7h-7z" fill="#1E2413" fill-opacity="0.50"/><path d="M721 103h7v7h-7z" fill="#1E2413" fill-opacity="0.56"/><path d="M728 110h7v7h-7z" fill="#1E2413" fill-opacity="0.62"/><path d="M735 103h7v7h-7zM721 131h7v7h-7z" fill="#1E2413" fill-opacity="0.69"/><path d="M735 110h7v7h-7z" fill="#1E2413" fill-opacity="0.75"/><path d="M728 103h7v7h-7zM728 117h7v7h-7zM721 138h7v7h-7z" fill="#1E2413" fill-opacity="0.81"/><path d="M728 131h7v7h-7z" fill="#1E2413" fill-opacity="0.88"/><path d="M735 124h7v7h-7z" fill="#1E2413" fill-opacity="0.94"/><path d="M721 96h7v7h-7zM728 96h7v7h-7zM721 124h7v7h-7zM728 124h7v7h-7zM721 145h7v7h-7z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M815 103h7v7h-7zM815 131h7v7h-7zM815 138h7v7h-7z" fill="#1E2413" fill-opacity="0.12"/><path d="M815 117h7v7h-7zM815 124h7v7h-7z" fill="#1E2413" fill-opacity="0.19"/><path d="M808 96h7v7h-7zM801 124h7v7h-7z" fill="#1E2413" fill-opacity="0.62"/><path d="M801 117h7v7h-7zM801 131h7v7h-7zM801 145h7v7h-7z" fill="#1E2413" fill-opacity="0.69"/><path d="M801 96h7v7h-7z" fill="#1E2413" fill-opacity="0.75"/><path d="M801 110h7v7h-7z" fill="#1E2413" fill-opacity="0.81"/><path d="M801 103h7v7h-7zM801 138h7v7h-7zM808 145h7v7h-7z" fill="#1E2413" fill-opacity="0.88"/><path d="M808 103h7v7h-7zM808 110h7v7h-7zM808 117h7v7h-7zM808 124h7v7h-7zM808 131h7v7h-7zM808 138h7v7h-7z" fill="#1E2413" fill-opacity="1.00"/></g>
+
+        <text class="s1dL" x="135" y="240" text-anchor="middle">1,797 real digits</text>
+        <text class="s1dS" x="135" y="256" text-anchor="middle">UCI, 8x8, pixels 0 to 16</text>
+        <text class="s1dL" x="316" y="78">500 test</text>
+        <text class="s1dS" x="316" y="96">never relabelled, only scored</text>
+        <text class="s1dL" x="316" y="150">800 training</text>
+        <text class="s1dB" x="316" y="168">133 planted wrong labels</text>
+        <text class="s1dL" x="316" y="222">497 more, same labellers</text>
+        <text class="s1dS" x="316" y="240">86 planted, held back</text>
+        <text class="s1dB" x="728" y="178" text-anchor="middle">given "1"</text>
+        <text class="s1dS" x="728" y="194" text-anchor="middle">it is a 7</text>
+        <text class="s1dB" x="808" y="178" text-anchor="middle">given "7"</text>
+        <text class="s1dS" x="808" y="194" text-anchor="middle">it is a 1</text>
+        <text class="s1dV" x="560" y="130">16.6%</text>
+        <text class="s1dS" x="560" y="148">of the</text>
+        <text class="s1dS" x="560" y="162">training labels</text>
+
+        <text class="s1dN" x="30" y="286">The plant is declared: 1s, 3s, 4s, 7s, 8s, 9s swapped with their look-alike, favouring the images that look most like the other.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the two thumbnails are real training rows 5 and 25, drawn from their own 64 pixels</figcaption>
+    </figure>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Load the real digits.</strong> 1,797 images of 8 by 8 pixels, each pixel a count from 0 to 16, from the UCI Optical Recognition of Handwritten Digits dataset. The ten classes are nearly balanced.</p>
+        <div class="prompt-box good"><span class="label">★ Step 1 · the real digits</span>import numpy as np
+from sklearn.datasets import load_digits
+
+d = load_digits()
+X, y = d.data.astype(np.int64), d.target
+print(X.shape, np.bincount(y))
+# (1797, 64) [178 182 177 183 181 182 181 179 174 180]</div>
+      </div>
+      <div class="step">
+        <p><strong>Split once, with a seed, and write the seed down.</strong> 500 test images that will never be edited, 800 to train on, and 497 held back as "more data" for the tempting fix in step 5.</p>
+        <div class="prompt-box good"><span class="label">★ Step 2 · one split, frozen forever</span>rng = np.random.default_rng(20210921)
+perm = rng.permutation(len(y))
+test, train, pool = perm[:500], perm[500:1300], perm[1300:]
+print(len(test), len(train), len(pool))
+# 500 800 497</div>
+      </div>
+      <div class="step">
+        <p><strong>Freeze the model.</strong> k-nearest neighbours with k = 10 on squared pixel distance. Distance ties go to the earlier training row and vote ties go to the digit of the nearest tied neighbour, so every run gives the same answer. Score it once on the true labels: this is the ceiling the plant takes away.</p>
+        <div class="prompt-box good"><span class="label">★ Step 3 · the frozen model</span>K = 10
+def knn_predict(Xtr, ytr, Xq):
+    D = ((Xq[:, None, :] - Xtr[None, :, :]) ** 2).sum(-1)
+    nb = np.argsort(D, axis=1, kind="stable")[:, :K]
+    out = []
+    for row in nb:
+        votes = np.bincount(ytr[row], minlength=10)
+        best = votes.max()
+        out.append(next(ytr[j] for j in row if votes[ytr[j]] == best))
+    return np.array(out)
+
+def score(Xtr, ytr):
+    return int((knn_predict(Xtr, ytr, X[test]) == y[test]).sum())
+
+print("true labels:", score(X[train], y[train]), "of 500")
+# true labels: 489 of 500</div>
+      </div>
+      <div class="step">
+        <p><strong>Plant the noise, and declare it.</strong> Six confusions a tired labeller makes: 1 and 7, 3 and 8, 4 and 9, each way at its own rate. Within each digit the flips are drawn from the images that look most like the other digit, measured as distance to each digit's mean image, because that is where real labellers err.</p>
+        <div class="prompt-box good"><span class="label">★ Step 4 · the declared plant</span>PLANT = {(1, 7): .35, (7, 1): .25, (3, 8): .30, (8, 3): .20, (4, 9): .35, (9, 4): .25}
+centre = np.array([X[y == c].mean(0) for c in range(10)])
+
+def plant(ids):
+    given = y[ids].copy()
+    for (a, b), rate in PLANT.items():
+        cand = np.array([i for i, t in enumerate(ids) if y[t] == a])
+        m = int(round(rate * len(cand)))
+        look = [((X[ids[i]] - centre[b]) ** 2).sum() - ((X[ids[i]] - centre[a]) ** 2).sum()
+                for i in cand]
+        top = cand[np.argsort(look, kind="stable")][: int(np.ceil(2 * m))]
+        given[rng.choice(top, m, replace=False)] = b
+    return given
+
+g_train, g_pool = plant(train), plant(pool)
+print("planted:", int((g_train != y[train]).sum()), "of 800")
+# planted: 133 of 800</div>
+      </div>
+      <div class="step">
+        <p><strong>Measure the gap, then try the tempting fix.</strong> The same model on the labels you were given, and then on 497 more rows from the same labellers. Keep all three numbers; they bound everything the next five sessions do.</p>
+        <div class="prompt-box good"><span class="label">★ Step 5 · baseline and more of the same</span>print("baseline:", score(X[train], g_train), "of 500")
+# baseline: 457 of 500
+
+more_X = np.vstack([X[train], X[pool]])
+more_g = np.concatenate([g_train, g_pool])
+print("more rows, same noise:", score(more_X, more_g), "of 500")
+# more rows, same noise: 454 of 500</div>
+      </div>
+    </div>
+
+    <table class="clean" style="margin-top:1.2rem">
+      <tr><th>Same frozen model, same 500 test digits</th><th>Training rows</th><th>Correct</th><th>Accuracy</th></tr>
+      <tr><td>The true labels (knowable only because the plant is declared)</td><td>800</td><td>489</td><td><strong>97.8%</strong></td></tr>
+      <tr><td>The labels you were given</td><td>800</td><td>457</td><td><strong>91.4%</strong></td></tr>
+      <tr><td>497 more rows from the same labellers</td><td>1,297</td><td>454</td><td><strong>90.8%</strong></td></tr>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Read the third row twice.</strong> Sixty-two percent more data made the model 0.6 points worse on this seed. Over twenty seeds of the same setup it averages +0.25 points and is worse than the baseline in 8 of the 20, which is the honest summary: more rows with the same systematic confusions buy roughly nothing, because each new row teaches the same wrong boundary again. Cleaning the 800 you have, session 4 will show, buys about four points.</p>
+    </div>
+  </section>
+
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 2</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li><strong>Write your freeze list.</strong> For a model you own, list every setting that must not move while you edit data: architecture, hyperparameters, seeds, preprocessing, metric, and the exact test file with its checksum.</li>
+      <li><strong>Change the seed in step 2</strong> and re-run steps 2 to 5. Write down all three numbers. Which one moved most, and does the third row still sit near the second?</li>
+      <li><strong>Plant uniform noise instead:</strong> flip 16.6 percent of training labels to a random other digit and re-run step 5. Compare the more-data row with tonight's. The difference is the difference between random and systematic error.</li>
+      <li><strong>Bring ten rows your team argued about.</strong> Session 2 is about the rows where two careful people disagree, and a real disputed example is worth more than any constructed one.</li>
+    </ol>
+  </section>
+
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <p>Clear all three and session 1 gets stamped in your passport.</p>
+
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">1 · A teammate proposes choosing which digit to augment by looking at per-digit accuracy on the test set. Why is that off the table?</p>
+      <button class="qopt" type="button">A · Because per-digit accuracy is too noisy on 500 images to be useful</button>
+      <button class="qopt" type="button">B · Because augmentation should always target every digit equally</button>
+      <button class="qopt" type="button">C · Because choosing an edit is a modelling decision, and a test set used to make decisions no longer measures them; the weak slice has to be found on the training set, for example with cross-validation</button>
+      <button class="qopt" type="button">D · Because the frozen model cannot be scored per digit</button>
+      <p class="qwhy">The MIT notes put it as a rule: evaluation examples are for computing scores, "not for any modeling decisions". Session 5 finds the weakest digit by cross-validated agreement on the training rows, and the test set stays a measurement.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">2 · Ng's slide shows data-centric work adding 16.9, 3.06 and 0.4 points on three projects. What is the right way to quote it?</p>
+      <button class="qopt" type="button">A · The data loop beat the model loop on all three, by amounts that ranged from large to small; the gain depends on how much of the error was in the data</button>
+      <button class="qopt" type="button">B · Data-centric work adds about 17 points</button>
+      <button class="qopt" type="button">C · Model-centric work never helps</button>
+      <button class="qopt" type="button">D · The surface-inspection project shows data work does not matter</button>
+      <p class="qwhy">Quoting only the steel row overstates the method; quoting only the surface row understates it. The full table is the honest claim, and it is also the more useful one, because it tells you to measure how much error is in your data before promising a gain.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="3">
+      <p class="qtext">3 · Tonight, 497 more rows from the same labellers took the frozen model from 91.4 to 90.8 percent. What explains that?</p>
+      <button class="qopt" type="button">A · kNN gets worse with more data</button>
+      <button class="qopt" type="button">B · The pool rows are lower quality images</button>
+      <button class="qopt" type="button">C · The test set is too small to measure anything</button>
+      <button class="qopt" type="button">D · The noise is systematic: the look-alike 7s labelled 1 in the pool sit exactly where the look-alike 7s labelled 1 in the training set sit, so the new rows vote for the same wrong boundary; across twenty seeds the change averages +0.25 points, roughly nothing</button>
+      <p class="qwhy">Random noise averages out as rows are added; systematic confusion is reinforced. One seed can show a small loss or a small gain, and the sweep is what says "about zero". C has a grain of truth, one test item is 0.2 points, which is why the claim rests on twenty seeds rather than one.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng, "MLOps: From Model-centric to Data-centric AI" (2021)</span><span class="note">Code plus data, the two views, the three-project table, the four properties of good data and the small-data claim, read from the slide deck</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">MIT, Introduction to Data-Centric AI (2023, 2024)</span><span class="note">The definition and the rule that evaluation data never drives decisions, read from the lecture notes</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Northcutt, Athalye, Mueller (2021), label errors in test sets</span><span class="note">The 3.3 percent average, the per-dataset rates and the ResNet-18 against ResNet-50 flip, read from the NeurIPS paper</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Data-Centric AI Competition (2021)</span><span class="note">The inversion, the deadline and the Roman-numeral task read at source; model, image size and caps reported from participant write-ups</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Every number in the build-along</span><span class="note">Computed from the UCI Optical Recognition of Handwritten Digits (Alpaydin and Kaynak, 1998); the noise is constructed and declared</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Every fact on this page, and its verification tier, is recorded in the course's source map.</p>
+  </section>
+
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 1 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>AI system = code + data</b><span>Pin one half, iterate the other. Data-centric pins the code.</span></div>
+      <div class="cheat-item"><b>Freeze list</b><span>Architecture, hyperparameters, seeds, preprocessing, metric, test file checksum.</span></div>
+      <div class="cheat-item"><b>The test set is scored, never edited</b><span>No relabelling, no filtering, no choosing edits by looking at it.</span></div>
+      <div class="cheat-item"><b>Three bounding numbers</b><span>Given labels 91.4, true labels 97.8, more of the same 90.8.</span></div>
+      <div class="cheat-item"><b>Quote the whole table</b><span>Data work added 16.9, 3.06 and 0.4 points on Ng's three projects.</span></div>
+      <div class="cheat-item"><b>Four edits</b><span>Rewrite the rule, relabel, remove, add targeted rows.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>Before any row is called wrong, someone has to agree what right is. Session 2 is about labellers who disagree: how to measure agreement beyond "percent the same", how majority vote goes wrong when one labeller is careless, and how a label guideline gets rewritten until two careful people land on the same answer. Bring the ten rows your team argued about.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 1 of 6 · learn-data-centric-ai-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← Course home</a> &nbsp;·&nbsp; <a href="02-when-labellers-disagree.html">Next: When labellers disagree →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=3"></script>
+</body>
+</html>

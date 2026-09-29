@@ -1,0 +1,248 @@
+{
+ "reference": {
+  "correct": 489,
+  "acc_pct": 97.8
+ },
+ "configs": {
+  "base-none-x-x-oos": {
+   "acc_pct": 91.4,
+   "correct": 457,
+   "flagged": 98
+  },
+  "base-none-x-x-leak": {
+   "acc_pct": 91.4,
+   "correct": 457,
+   "flagged": 42
+  },
+  "base-none-x-aug-oos": {
+   "acc_pct": 91.4,
+   "correct": 457,
+   "flagged": 98
+  },
+  "base-none-x-aug-leak": {
+   "acc_pct": 91.4,
+   "correct": 457,
+   "flagged": 42
+  },
+  "base-none-amb-x-oos": {
+   "acc_pct": 91.2,
+   "correct": 456,
+   "flagged": 98
+  },
+  "base-none-amb-x-leak": {
+   "acc_pct": 91.2,
+   "correct": 456,
+   "flagged": 42
+  },
+  "base-none-amb-aug-oos": {
+   "acc_pct": 89,
+   "correct": 445,
+   "flagged": 98
+  },
+  "base-none-amb-aug-leak": {
+   "acc_pct": 90.2,
+   "correct": 451,
+   "flagged": 42
+  },
+  "base-remove-x-x-oos": {
+   "acc_pct": 95.8,
+   "correct": 479,
+   "flagged": 98
+  },
+  "base-remove-x-x-leak": {
+   "acc_pct": 94.8,
+   "correct": 474,
+   "flagged": 42
+  },
+  "base-remove-x-aug-oos": {
+   "acc_pct": 95.8,
+   "correct": 479,
+   "flagged": 98
+  },
+  "base-remove-x-aug-leak": {
+   "acc_pct": 94.6,
+   "correct": 473,
+   "flagged": 42
+  },
+  "base-remove-amb-x-oos": {
+   "acc_pct": 94,
+   "correct": 470,
+   "flagged": 98
+  },
+  "base-remove-amb-x-leak": {
+   "acc_pct": 95,
+   "correct": 475,
+   "flagged": 42
+  },
+  "base-remove-amb-aug-oos": {
+   "acc_pct": 93.8,
+   "correct": 469,
+   "flagged": 98
+  },
+  "base-remove-amb-aug-leak": {
+   "acc_pct": 93.4,
+   "correct": 467,
+   "flagged": 42
+  },
+  "base-relabel-x-x-oos": {
+   "acc_pct": 95.6,
+   "correct": 478,
+   "flagged": 98
+  },
+  "base-relabel-x-x-leak": {
+   "acc_pct": 94.8,
+   "correct": 474,
+   "flagged": 42
+  },
+  "base-relabel-x-aug-oos": {
+   "acc_pct": 96,
+   "correct": 480,
+   "flagged": 98
+  },
+  "base-relabel-x-aug-leak": {
+   "acc_pct": 94.6,
+   "correct": 473,
+   "flagged": 42
+  },
+  "base-relabel-amb-x-oos": {
+   "acc_pct": 95,
+   "correct": 475,
+   "flagged": 98
+  },
+  "base-relabel-amb-x-leak": {
+   "acc_pct": 95.2,
+   "correct": 476,
+   "flagged": 42
+  },
+  "base-relabel-amb-aug-oos": {
+   "acc_pct": 94.4,
+   "correct": 472,
+   "flagged": 98
+  },
+  "base-relabel-amb-aug-leak": {
+   "acc_pct": 93.4,
+   "correct": 467,
+   "flagged": 42
+  },
+  "more-none-x-x-oos": {
+   "acc_pct": 90.8,
+   "correct": 454,
+   "flagged": 133
+  },
+  "more-none-x-x-leak": {
+   "acc_pct": 90.8,
+   "correct": 454,
+   "flagged": 73
+  },
+  "more-none-x-aug-oos": {
+   "acc_pct": 90.8,
+   "correct": 454,
+   "flagged": 133
+  },
+  "more-none-x-aug-leak": {
+   "acc_pct": 90.8,
+   "correct": 454,
+   "flagged": 73
+  },
+  "more-none-amb-x-oos": {
+   "acc_pct": 91.8,
+   "correct": 459,
+   "flagged": 133
+  },
+  "more-none-amb-x-leak": {
+   "acc_pct": 93.8,
+   "correct": 469,
+   "flagged": 73
+  },
+  "more-none-amb-aug-oos": {
+   "acc_pct": 91.4,
+   "correct": 457,
+   "flagged": 133
+  },
+  "more-none-amb-aug-leak": {
+   "acc_pct": 94,
+   "correct": 470,
+   "flagged": 73
+  },
+  "more-remove-x-x-oos": {
+   "acc_pct": 95,
+   "correct": 475,
+   "flagged": 133
+  },
+  "more-remove-x-x-leak": {
+   "acc_pct": 93.4,
+   "correct": 467,
+   "flagged": 73
+  },
+  "more-remove-x-aug-oos": {
+   "acc_pct": 94.8,
+   "correct": 474,
+   "flagged": 133
+  },
+  "more-remove-x-aug-leak": {
+   "acc_pct": 93.8,
+   "correct": 469,
+   "flagged": 73
+  },
+  "more-remove-amb-x-oos": {
+   "acc_pct": 96.4,
+   "correct": 482,
+   "flagged": 133
+  },
+  "more-remove-amb-x-leak": {
+   "acc_pct": 95.4,
+   "correct": 477,
+   "flagged": 73
+  },
+  "more-remove-amb-aug-oos": {
+   "acc_pct": 96.6,
+   "correct": 483,
+   "flagged": 133
+  },
+  "more-remove-amb-aug-leak": {
+   "acc_pct": 95.6,
+   "correct": 478,
+   "flagged": 73
+  },
+  "more-relabel-x-x-oos": {
+   "acc_pct": 95.6,
+   "correct": 478,
+   "flagged": 133
+  },
+  "more-relabel-x-x-leak": {
+   "acc_pct": 93.6,
+   "correct": 468,
+   "flagged": 73
+  },
+  "more-relabel-x-aug-oos": {
+   "acc_pct": 95.6,
+   "correct": 478,
+   "flagged": 133
+  },
+  "more-relabel-x-aug-leak": {
+   "acc_pct": 93.8,
+   "correct": 469,
+   "flagged": 73
+  },
+  "more-relabel-amb-x-oos": {
+   "acc_pct": 96.6,
+   "correct": 483,
+   "flagged": 133
+  },
+  "more-relabel-amb-x-leak": {
+   "acc_pct": 95,
+   "correct": 475,
+   "flagged": 73
+  },
+  "more-relabel-amb-aug-oos": {
+   "acc_pct": 96.6,
+   "correct": 483,
+   "flagged": 133
+  },
+  "more-relabel-amb-aug-leak": {
+   "acc_pct": 95.8,
+   "correct": 479,
+   "flagged": 73
+  }
+ }
+}

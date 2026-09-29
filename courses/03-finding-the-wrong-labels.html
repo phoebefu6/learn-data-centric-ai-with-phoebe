@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 3 of 6. Confident learning by hand in numpy: out-of-sample votes, a bar per digit, the confident joint, and an honest score against a declared plant. 98 flags, 85 real, and the rows it cannot see.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Finding the wrong labels - learn data-centric ai with phoebe">
+<meta property="og:description" content="Session 3 of 6. Out-of-sample votes, per-class thresholds and the confident joint on 800 real digits: 98 flagged, precision 86.7 percent, recall 63.9 percent, and why in-sample votes drop recall to 30.1.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/courses/03-finding-the-wrong-labels.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Finding the wrong labels - learn data-centric ai with phoebe">
+<meta name="twitter:description" content="Session 3 of 6. Build confident learning by hand and score it against a declared plant: 98 flags, 85 real.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 3 · Finding the wrong labels - learn data-centric ai with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=3">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-centric-ai-with-phoebe</a> / Session 3 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data-Centric AI with Phoebe · Session 3 of 6</div>
+    <h1>Finding the <span class="accent">wrong labels</span></h1>
+    <p class="sub">Nobody reads 800 rows to find the 133 that are wrong. You need a detector that points at the likely ones, and you need to know how often it is right. Tonight we build confident learning by hand in numpy on the same real digits and the same declared plant as session 1: votes that never come from a row's own label, a separate bar for every digit, and a ten by ten table of counts whose off-diagonal cells are the flags. Then we score it honestly, including the rows it cannot see.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">ML engineers, data scientists</span>
+      <span class="chip audience">Python, numpy</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Votes, bars and the joint</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: confident learning in numpy</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we start</h2>
+    </div>
+    <p class="lede">Session 2 fixed the rows where careful people disagree by fixing the guideline. What is left are rows where the label is simply wrong: a 7 someone typed as 1, a 4 filed as 9. On our 800 training digits the declared plant put 133 of them there. The frozen model is still kNN with k = 10, the test set is still locked, and the question tonight is narrow: which rows should a human look at first, and how many of those will turn out to be real errors?</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">★ Build-along = run the code yourself</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> Your own implementation of confident learning in about forty lines of numpy, reproducing 98 flags on the 800 digits; the scores that go with it (precision 86.7 percent, recall 63.9 percent against the declared plant); the reason in-sample votes quietly halve recall; and a short list of what to ask before trusting anyone's flag count, including your own.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers out-of-sample probabilities</span>
+      <h2>A row must not vote for itself</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">Confident learning, from Northcutt, Jiang and Chuang's 2021 paper in the Journal of Artificial Intelligence Research, needs exactly two inputs: a predicted probability for every row and every class, and the labels you were given. The paper is explicit that the probabilities must be out of sample, computed beforehand, "e.g. cross-validation", and that any model producing probabilities will do, because the method "decouples the model and data cleaning". Everything interesting about the detector follows from one discipline: the model that judges a row must never have seen that row's label.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 324" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Left: the 800 training rows split into four folds. Fold 3 is held out; a kNN fitted on folds 1, 2 and 4 votes on each of its rows, for example row 5, given 1, where 8 of 10 neighbours say 7 and 2 say 1. Repeated for each fold, every row gets votes once. Out of sample: 98 flags, precision 86.7 percent, recall 63.9 percent. Right: the in-sample leak, where a row is its own nearest neighbour at distance zero and votes for its own label. In sample: 42 flags, precision 95.2 percent, recall 30.1 percent.">
+        <defs>
+          <filter id="s3aSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="53" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s3aHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s3aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s3aH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s3aL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s3aS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s3aB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s3aW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s3aA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s3aN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s3aH" x="30" y="26">OUT OF SAMPLE OR NOTHING: A ROW IS NEVER IN THE MODEL THAT VOTES ON IT</text>
+        <text class="s3aA" x="40" y="50">FOUR FOLDS, k = 4 AS IN THE PAPER</text>
+        <text class="s3aA" x="620" y="50">THE LEAK, IN SAMPLE</text>
+
+        <g filter="url(#s3aSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- four folds -->
+          <rect x="40" y="60" width="100" height="60" rx="6" transform="rotate(-0.6 90 90)" fill="url(#s3aHc)"/>
+          <rect x="160" y="60" width="100" height="60" rx="6" transform="rotate(0.5 210 90)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="280" y="60" width="100" height="60" rx="6" transform="rotate(-0.4 330 90)" fill="url(#s3aHc)"/>
+          <rect x="400" y="60" width="100" height="60" rx="6" transform="rotate(0.6 450 90)" fill="url(#s3aHc)"/>
+          <!-- the kNN fitted on the other three -->
+          <rect x="120" y="170" width="220" height="50" rx="8" transform="rotate(0.3 230 195)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M90 124 C100 146 150 156 176 166" marker-end="url(#s3aAr)"/>
+          <path d="M210 124 L220 164" stroke="#A63F1C" stroke-dasharray="5 4" marker-end="url(#s3aAr)"/>
+          <path d="M450 124 C440 150 360 156 316 166" marker-end="url(#s3aAr)"/>
+          <path d="M330 124 C322 140 296 150 280 164" marker-end="url(#s3aAr)"/>
+          <!-- output for one row -->
+          <rect x="384" y="170" width="170" height="50" rx="8" transform="rotate(-0.5 469 195)" fill="#F1F4E6"/>
+          <path d="M342 195 L378 195" marker-end="url(#s3aAr)"/>
+          <!-- divider -->
+          <path d="M590 44 L590 290" stroke="#E0E5D2"/>
+          <!-- in-sample cluster -->
+          <circle cx="650" cy="100" r="5"/>
+          <circle cx="700" cy="90" r="5"/>
+          <circle cx="690" cy="150" r="5"/>
+          <circle cx="800" cy="85" r="5"/>
+          <circle cx="824" cy="170" r="5"/>
+          <circle cx="652" cy="182" r="5"/>
+          <circle cx="745" cy="140" r="6" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M751 136 C798 102 812 172 754 148" marker-end="url(#s3aAr)"/>
+        </g>
+
+        <text class="s3aL" x="54" y="86">fold 1</text>
+        <text class="s3aS" x="54" y="104">trains</text>
+        <text class="s3aW" x="174" y="86">fold 2</text>
+        <text class="s3aW" x="174" y="104">held out</text>
+        <text class="s3aL" x="294" y="86">fold 3</text>
+        <text class="s3aS" x="294" y="104">trains</text>
+        <text class="s3aL" x="414" y="86">fold 4</text>
+        <text class="s3aS" x="414" y="104">trains</text>
+        <text class="s3aL" x="136" y="192">kNN, k = 10</text>
+        <text class="s3aS" x="136" y="209">fitted on folds 1, 3, 4 only</text>
+        <text class="s3aB" x="398" y="192">row 5, given 1</text>
+        <text class="s3aS" x="398" y="209">votes: 8 say 7, 2 say 1</text>
+        <text class="s3aS" x="40" y="240">repeat for each fold: every row is voted on exactly once</text>
+        <text class="s3aL" x="40" y="264">out of sample: 98 flags</text>
+        <text class="s3aS" x="40" y="282">precision 86.7%, recall 63.9%</text>
+        <text class="s3aB" x="620" y="214">its nearest neighbour is itself</text>
+        <text class="s3aS" x="620" y="232">distance 0, so its own label votes</text>
+        <text class="s3aL" x="620" y="264">in sample: 42 flags</text>
+        <text class="s3aS" x="620" y="282">precision 95.2%, recall 30.1%</text>
+
+        <text class="s3aN" x="30" y="312">Scored against the declared plant of 133. In sample looks precise only because it flags just the obvious.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the held-out fold is only ever asked, never trained on; drop that rule and recall falls from 63.9 to 30.1 percent</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Why the votes must be out of sample<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Take row 5 of the training set. It carries the label 1. Split the 800 rows into four folds, fit kNN on the three folds that do not contain row 5, and ask its ten nearest neighbours what it is: 8 of them say 7 and 2 say 1. That is a strong, honest signal that the label is wrong, and in fact the image is a 7 the plant labelled 1.</p>
+        <p>Now ask the same question in sample, with row 5 still in the training set. Its nearest neighbour is itself, at distance zero, carrying the label 1. Every row gets one guaranteed vote for its own label, and the look-alike rows the plant favours are exactly the ones whose neighbourhoods are already split. On the 800, the in-sample detector flags only 42 rows, 40 of them real, for precision 95.2 percent and recall 30.1 percent, against 63.9 percent out of sample. The high precision is not a virtue: it only flags the rows so wrong that even a self-vote cannot rescue them. Over twenty seeds the pattern holds, with in-sample recall averaging 32.45 percent against 59.57 percent out of sample.</p>
+        <p>This is detector leakage, a row's own label leaking into the judgement of that label. It is a cousin of feature leakage, which <a href="https://phoebefu6.github.io/learn-feature-engineering-with-phoebe/courses/b5-leakage.html">Feature Engineering covers ↗</a>; the cure here is the fold split, nothing more.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What "probability" means for kNN<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Confident learning asks for an n by m table of predicted probabilities: here 800 rows by 10 digits. A kNN with k = 10 gives the simplest version there is: the share of the ten neighbours voting for each digit. Row 5's row of the table is 0.2 for 1, 0.8 for 7, zero elsewhere. The probabilities move in steps of 0.1, they are not calibrated in any formal sense, and it does not matter much, because the next step compares each row against a bar set by the same model on the same data.</p>
+        <p>The paper fixes k = 4 folds in its cross-validation experiments, and we do the same. Any model that outputs probabilities can replace kNN: logistic regression, a gradient-boosted tree, a fine-tuned network. What cannot change is that each row's probabilities come from a model fitted without it. The homework swaps the model and compares the flags.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Build it before you import it<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>MIT's Introduction to Data-Centric AI, taught by Anish Athalye, Curtis Northcutt and Jonas Mueller, runs the label-errors lecture on the same pieces: out-of-sample predicted probabilities via cross-validation, "The thresholds for each class are the average predicted probability of examples in that class", and confident counting. Its lab asks for "your own implementation of automatic label error identification using Confident Learning". The open-source cleanlab library packages the method, and it is not taught here: writing it by hand once is how you learn which choices, the fold count, the tie rule, the model, move the flag list, and it gives you something you can check line by line.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>The dataset everyone assumed was clean.</strong> MNIST is the first dataset most practitioners ever train on, and it has long been treated as correctly labelled. Northcutt, Jiang and Chuang's abstract reports that confident learning finds label errors in "the presumed error-free MNIST". The later test-set study puts numbers on it: of 100 MNIST test images flagged, human reviewers confirmed 15. Few errors, but not none, and a detector is the only practical way to find them.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers per-class thresholds and the confident joint</span>
+      <h2>Each digit gets its own bar</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">A single cut-off such as "flag anything below 0.5" treats every digit alike, and the digits are not alike. Some are easy for the model and it is confident about all of them; others are look-alikes and it is never sure. Confident learning sets one threshold per class: t_j is the average self-confidence of the rows given label j, the mean probability the model assigns to the label they carry (equation 2 in the paper). A row counts as "confidently digit j" only if its probability for j clears digit j's own bar.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Left: the confident joint on the 800 training digits as a 10 by 10 grid, rows are the given label and columns the suggested digit. Diagonal counts 80, 46, 65, 43, 44, 59, 83, 49, 48, 42. Off-diagonal cells, the flags, total 98: given 7 suggested 1, 20; given 9 suggested 4, 19; given 8 suggested 3, 17; given 1 suggested 7, 14; given 3 suggested 8, 14; given 4 suggested 9, 7; given 8 suggested 1, 3; and one each for given 2 suggested 8, given 3 suggested 7, given 5 suggested 9 and given 9 suggested 8. Right: each digit's threshold on a 0 to 1 scale: 1.00, 0.49, 0.94, 0.54, 0.59, 0.95, 0.98, 0.66, 0.58, 0.60.">
+        <defs>
+          <filter id="s3bSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="61" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s3bHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#A63F1C" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s3bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s3bH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s3bL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s3bS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s3bB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s3bW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s3bA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s3bN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s3bH" x="30" y="26">THE CONFIDENT JOINT ON THE 800: ROW = GIVEN LABEL, COLUMN = SUGGESTED DIGIT</text>
+        <text class="s3bS" x="30" y="44">tint = confident and agreeing · rust = flagged, 98 rows in all · blank = zero</text>
+
+        <g filter="url(#s3bSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- grid lines -->
+          <path d="M90 80 L390 80 M90 110 L390 110 M90 140 L390 140 M90 170 L390 170 M90 200 L390 200 M90 230 L390 230 M90 260 L390 260 M90 290 L390 290 M90 320 L390 320 M90 350 L390 350 M90 380 L390 380" stroke="#E0E5D2" stroke-width="1.2"/>
+          <path d="M90 80 L90 380 M120 80 L120 380 M150 80 L150 380 M180 80 L180 380 M210 80 L210 380 M240 80 L240 380 M270 80 L270 380 M300 80 L300 380 M330 80 L330 380 M360 80 L360 380 M390 80 L390 380" stroke="#E0E5D2" stroke-width="1.2"/>
+          <!-- diagonal -->
+          <rect x="92" y="82" width="26" height="26" rx="3" transform="rotate(0.5 105 95)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="122" y="112" width="26" height="26" rx="3" transform="rotate(-0.5 135 125)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="152" y="142" width="26" height="26" rx="3" transform="rotate(0.5 165 155)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="182" y="172" width="26" height="26" rx="3" transform="rotate(-0.5 195 185)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="212" y="202" width="26" height="26" rx="3" transform="rotate(0.5 225 215)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="242" y="232" width="26" height="26" rx="3" transform="rotate(-0.5 255 245)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="272" y="262" width="26" height="26" rx="3" transform="rotate(0.5 285 275)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="302" y="292" width="26" height="26" rx="3" transform="rotate(-0.5 315 305)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="332" y="322" width="26" height="26" rx="3" transform="rotate(0.5 345 335)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="362" y="352" width="26" height="26" rx="3" transform="rotate(-0.5 375 365)" fill="#F1F4E6" stroke="#667A32"/>
+          <!-- off-diagonal flags: large counts solid rust, singles hatched -->
+          <rect x="302" y="112" width="26" height="26" rx="3" transform="rotate(0.8 315 125)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="332" y="142" width="26" height="26" rx="3" transform="rotate(-0.8 345 155)" fill="url(#s3bHc)" stroke="#A63F1C"/>
+          <rect x="302" y="172" width="26" height="26" rx="3" transform="rotate(0.6 315 185)" fill="url(#s3bHc)" stroke="#A63F1C"/>
+          <rect x="332" y="172" width="26" height="26" rx="3" transform="rotate(-0.6 345 185)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="362" y="202" width="26" height="26" rx="3" transform="rotate(0.7 375 215)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="362" y="232" width="26" height="26" rx="3" transform="rotate(-0.7 375 245)" fill="url(#s3bHc)" stroke="#A63F1C"/>
+          <rect x="122" y="292" width="26" height="26" rx="3" transform="rotate(0.8 135 305)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="122" y="322" width="26" height="26" rx="3" transform="rotate(-0.8 135 335)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="182" y="322" width="26" height="26" rx="3" transform="rotate(0.6 195 335)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="212" y="352" width="26" height="26" rx="3" transform="rotate(-0.6 225 365)" fill="#A63F1C" stroke="#A63F1C"/>
+          <rect x="332" y="352" width="26" height="26" rx="3" transform="rotate(0.7 345 365)" fill="url(#s3bHc)" stroke="#A63F1C"/>
+          <!-- threshold bars -->
+          <path d="M470 95 L670 95 M470 125 L670 125 M470 155 L670 155 M470 185 L670 185 M470 215 L670 215 M470 245 L670 245 M470 275 L670 275 M470 305 L670 305 M470 335 L670 335 M470 365 L670 365" stroke="#CCD3BC" stroke-width="1.4"/>
+          <rect x="470" y="90" width="200" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="120" width="98" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="150" width="188" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="180" width="108" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="210" width="118" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="240" width="190" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="270" width="196" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="300" width="132" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="330" width="116" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <rect x="470" y="360" width="120" height="10" rx="3" fill="#CBD5A6" stroke="#667A32" stroke-width="1.4"/>
+          <path d="M670 86 L670 104 M568 116 L568 134 M658 146 L658 164 M578 176 L578 194 M588 206 L588 224 M660 236 L660 254 M666 266 L666 284 M602 296 L602 314 M586 326 L586 344 M590 356 L590 374" stroke="#3D4A1C" stroke-width="2.4"/>
+          <!-- doodle anchor: a bracket pointing from the 1s bar to the 0s bar -->
+          <path d="M716 95 C730 95 730 125 716 125" stroke="#545B44" stroke-width="1.6"/>
+        </g>
+
+        <text class="s3bA" x="240" y="62" text-anchor="middle">SUGGESTED DIGIT</text>
+        <text class="s3bA" x="105" y="75" text-anchor="middle">0</text>
+        <text class="s3bA" x="135" y="75" text-anchor="middle">1</text>
+        <text class="s3bA" x="165" y="75" text-anchor="middle">2</text>
+        <text class="s3bA" x="195" y="75" text-anchor="middle">3</text>
+        <text class="s3bA" x="225" y="75" text-anchor="middle">4</text>
+        <text class="s3bA" x="255" y="75" text-anchor="middle">5</text>
+        <text class="s3bA" x="285" y="75" text-anchor="middle">6</text>
+        <text class="s3bA" x="315" y="75" text-anchor="middle">7</text>
+        <text class="s3bA" x="345" y="75" text-anchor="middle">8</text>
+        <text class="s3bA" x="375" y="75" text-anchor="middle">9</text>
+        <text class="s3bA" x="24" y="237">GIVEN</text>
+        <text class="s3bA" x="80" y="99" text-anchor="end">0</text>
+        <text class="s3bA" x="80" y="129" text-anchor="end">1</text>
+        <text class="s3bA" x="80" y="159" text-anchor="end">2</text>
+        <text class="s3bA" x="80" y="189" text-anchor="end">3</text>
+        <text class="s3bA" x="80" y="219" text-anchor="end">4</text>
+        <text class="s3bA" x="80" y="249" text-anchor="end">5</text>
+        <text class="s3bA" x="80" y="279" text-anchor="end">6</text>
+        <text class="s3bA" x="80" y="309" text-anchor="end">7</text>
+        <text class="s3bA" x="80" y="339" text-anchor="end">8</text>
+        <text class="s3bA" x="80" y="369" text-anchor="end">9</text>
+
+        <text class="s3bL" x="105" y="99" text-anchor="middle">80</text>
+        <text class="s3bL" x="135" y="129" text-anchor="middle">46</text>
+        <text class="s3bL" x="165" y="159" text-anchor="middle">65</text>
+        <text class="s3bL" x="195" y="189" text-anchor="middle">43</text>
+        <text class="s3bL" x="225" y="219" text-anchor="middle">44</text>
+        <text class="s3bL" x="255" y="249" text-anchor="middle">59</text>
+        <text class="s3bL" x="285" y="279" text-anchor="middle">83</text>
+        <text class="s3bL" x="315" y="309" text-anchor="middle">49</text>
+        <text class="s3bL" x="345" y="339" text-anchor="middle">48</text>
+        <text class="s3bL" x="375" y="369" text-anchor="middle">42</text>
+
+        <text class="s3bW" x="315" y="129" text-anchor="middle">14</text>
+        <text class="s3bB" x="345" y="159" text-anchor="middle">1</text>
+        <text class="s3bB" x="315" y="189" text-anchor="middle">1</text>
+        <text class="s3bW" x="345" y="189" text-anchor="middle">14</text>
+        <text class="s3bW" x="375" y="219" text-anchor="middle">7</text>
+        <text class="s3bB" x="375" y="249" text-anchor="middle">1</text>
+        <text class="s3bW" x="135" y="309" text-anchor="middle">20</text>
+        <text class="s3bW" x="135" y="339" text-anchor="middle">3</text>
+        <text class="s3bW" x="195" y="339" text-anchor="middle">17</text>
+        <text class="s3bW" x="225" y="369" text-anchor="middle">19</text>
+        <text class="s3bB" x="345" y="369" text-anchor="middle">1</text>
+
+        <text class="s3bH" x="470" y="74">EACH DIGIT'S BAR, t_j</text>
+        <text class="s3bL" x="684" y="99">1.00</text>
+        <text class="s3bL" x="684" y="129">0.49</text>
+        <text class="s3bL" x="684" y="159">0.94</text>
+        <text class="s3bL" x="684" y="189">0.54</text>
+        <text class="s3bL" x="684" y="219">0.59</text>
+        <text class="s3bL" x="684" y="249">0.95</text>
+        <text class="s3bL" x="684" y="279">0.98</text>
+        <text class="s3bL" x="684" y="309">0.66</text>
+        <text class="s3bL" x="684" y="339">0.58</text>
+        <text class="s3bL" x="684" y="369">0.60</text>
+        <text class="s3bB" x="738" y="99">0s: all 10 votes</text>
+        <text class="s3bB" x="738" y="129">1s: about half</text>
+        <text class="s3bA" x="470" y="398" text-anchor="middle">0</text>
+        <text class="s3bA" x="570" y="398" text-anchor="middle">0.5</text>
+        <text class="s3bA" x="670" y="398" text-anchor="middle">1.0</text>
+
+        <text class="s3bN" x="30" y="420">Read a rust cell as: 20 rows labelled 7 whose votes for 1 clear the 1s' bar. Spread-out rows land nowhere.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the flags are the off-diagonal cells, and each column's bar is set by how confident the model is about that digit</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The thresholds, and why a 1 needs fewer votes than a 0<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>On the 800 training digits the bars come out as printed by the build-along: 0: 1.00, 1: 0.49, 2: 0.94, 3: 0.54, 4: 0.59, 5: 0.95, 6: 0.98, 7: 0.66, 8: 0.58, 9: 0.60. A row given 0 has to win all ten votes for 0 to look confidently like a 0, because 0s are easy and every other 0 does. A row needs only 0.49 of its votes for 1 to look confidently like a 1, because the plant has scrambled 1s and 7s and the model is rarely sure about either.</p>
+        <p>That is the point of the per-class bar. The paper argues it makes the method robust to "heterogeneous class probability distributions" and to "class-imbalance": a class the model is over-confident about gets a proportionally higher bar, so its rows are not all waved through, and a class it is unsure about gets a lower one, so its rows are not all flagged.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Counting into the joint, and the collision rule<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The confident joint C is a ten by ten table. For every row given label i, find each digit j whose probability clears t_j. If exactly one does, add one to C[i][j]. If several do, the collision rule of equation 1 applies: take the one with the highest probability among those over their bars. Diagonal cells are rows whose label the votes confirm; off-diagonal cells are rows where the votes confidently point elsewhere, and those are the flags.</p>
+        <p>On the 800 the diagonal holds 80, 46, 65, 43, 44, 59, 83, 49, 48 and 42, and the off-diagonals hold 98 rows. The big cells are the plant showing through: given 7 but suggested 1, 20 rows; given 9 suggested 4, 19; given 8 suggested 3, 17; given 1 suggested 7 and given 3 suggested 8, 14 each; given 4 suggested 9, 7. The small ones, 3 rows given 8 suggested 1 and single rows at 2 to 8, 3 to 7, 5 to 9 and 9 to 8, are where the detector disagrees with a label the plant never touched, and Part 3 checks them.</p>
+        <p>A row whose probabilities clear no bar at all, such as a near-uniform spread of votes, lands in no cell. The paper counts that as a feature: the joint is "robust to pure noise or examples from an alien class". It is also, as Part 3 shows, where the missed errors hide.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Calibrating the joint, and the pruning variants<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The raw counts are not yet an estimate of the noise. Equation 3 of the paper calibrates C into Q, an estimate of the joint distribution of given and true labels: each row is rescaled so its sum matches the observed count of that given label, and the whole table is normalised to sum to 1. Q is what you would report as "an estimated share of 7s labelled 1".</p>
+        <p>The paper then compares several ways to choose which rows to prune. The baseline C_confusion flags every row whose argmax disagrees with its label, which the authors describe as "similar to a single iteration of INCV". C_{y,y*} flags the off-diagonals of the confident joint, which is what we compute tonight. Prune by Class removes, per given class, the rows with the lowest self-confidence; Prune by Noise Rate ranks them by margin, the gap between the best other class and the given one; C+NR takes the intersection of the two. None of these variants is computed here; the build-along implements C_{y,y*} and C_confusion only, so every number on this page traces to one of those two.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Missiles filed as projectiles.</strong> The paper's own headline example is one off-diagonal cell of a much larger joint. On ImageNet, confident learning estimates "645 missile images are mislabeled as their parent class projectile". That is exactly the shape of our given 7, suggested 1 cell: a systematic confusion between two neighbouring classes, found by counting, not by reading every image.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers what the detector finds and misses</span>
+      <h2>Precision, recall, and the rows it cannot see</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">A flag count on its own tells you nothing. Tonight we can do better than usual, because the plant is declared: we know which 133 of the 800 labels are wrong, so every flag can be scored. On real data you never know that, and the second half of this Part is about what you do instead.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 272" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Real training digits in three bins. Caught, 85 of the 98 flags: row 5, a 7 given 1; row 25, a 1 given 7; row 0, a 3 given 8; row 24, a 4 given 9. False alarms, 13: row 63, a 3 given 3 that the detector calls 8; row 197, a 2 given 2 that it calls 8. Missed, 48 of the 133 planted: row 12, a 9 given 4; row 20, a 1 given 7; row 28, a 7 given 1; for all three no digit clears its bar.">
+        <defs>
+          <filter id="s3cSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="67" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s3cHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#A63F1C" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s3cAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s3cH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s3cL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s3cS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s3cB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s3cN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s3cH" x="30" y="26">98 FLAGS AND 133 PLANTED ERRORS, AS REAL TRAINING ROWS</text>
+
+        <g filter="url(#s3cSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="30" y="44" width="330" height="176" rx="8" transform="rotate(-0.3 195 132)" fill="#F1F4E6" stroke="#667A32"/>
+          <rect x="380" y="44" width="210" height="176" rx="8" transform="rotate(0.3 485 132)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="610" y="44" width="250" height="176" rx="8" transform="rotate(-0.3 735 132)" fill="#FBEAE1" stroke="#A63F1C"/>
+          <!-- thumbnail frames -->
+          <rect x="42" y="84" width="56" height="56" rx="4" transform="rotate(-1.5 70 112)" fill="#FFFFFF"/>
+          <rect x="128" y="84" width="56" height="56" rx="4" transform="rotate(1.2 156 112)" fill="#FFFFFF"/>
+          <rect x="214" y="84" width="56" height="56" rx="4" transform="rotate(-1 242 112)" fill="#FFFFFF"/>
+          <rect x="300" y="84" width="56" height="56" rx="4" transform="rotate(1.4 328 112)" fill="#FFFFFF"/>
+          <rect x="406" y="84" width="56" height="56" rx="4" transform="rotate(1 434 112)" fill="#FFFFFF" stroke="#545B44"/>
+          <rect x="516" y="84" width="56" height="56" rx="4" transform="rotate(-1.2 544 112)" fill="#FFFFFF" stroke="#545B44"/>
+          <rect x="622" y="84" width="56" height="56" rx="4" transform="rotate(-1.3 650 112)" fill="#FFFFFF" stroke="#A63F1C"/>
+          <rect x="708" y="84" width="56" height="56" rx="4" transform="rotate(1.1 736 112)" fill="#FFFFFF" stroke="#A63F1C"/>
+          <rect x="794" y="84" width="56" height="56" rx="4" transform="rotate(-0.9 822 112)" fill="#FFFFFF" stroke="#A63F1C"/>
+          <!-- doodle anchor: a question mark over the missed bin -->
+          <path d="M826 54 C826 46 840 46 840 54 C840 60 833 60 833 66" stroke="#A63F1C" stroke-width="1.8"/>
+          <path d="M833 72 L833 73" stroke="#A63F1C" stroke-width="2.4"/>
+        </g>
+        <g stroke="none"><path d="M58 106h6v6h-6zM58 118h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M82 118h6v6h-6zM70 130h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M58 130h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M58 88h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M58 94h6v6h-6zM64 106h6v6h-6zM82 112h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M76 88h6v6h-6zM70 124h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M76 106h6v6h-6zM58 112h6v6h-6zM76 118h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M64 94h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M70 100h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M76 94h6v6h-6zM64 118h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M76 100h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M70 94h6v6h-6zM70 106h6v6h-6zM64 124h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M70 118h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M76 112h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M64 88h6v6h-6zM70 88h6v6h-6zM64 112h6v6h-6zM70 112h6v6h-6zM64 130h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M162 94h6v6h-6zM162 118h6v6h-6zM162 124h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M162 106h6v6h-6zM162 112h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M156 88h6v6h-6zM150 112h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M150 106h6v6h-6zM150 118h6v6h-6zM150 130h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M150 88h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M150 100h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M150 94h6v6h-6zM150 124h6v6h-6zM156 130h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M156 94h6v6h-6zM156 100h6v6h-6zM156 106h6v6h-6zM156 112h6v6h-6zM156 118h6v6h-6zM156 124h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M254 118h6v6h-6zM254 124h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M248 88h6v6h-6zM248 100h6v6h-6zM242 118h6v6h-6zM224 124h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M224 118h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M230 130h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M236 94h6v6h-6zM248 94h6v6h-6zM236 124h6v6h-6zM242 124h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M230 88h6v6h-6zM230 118h6v6h-6zM248 130h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M236 112h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M242 106h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M242 94h6v6h-6zM248 112h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M230 94h6v6h-6zM236 106h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M236 88h6v6h-6zM242 88h6v6h-6zM242 100h6v6h-6zM242 112h6v6h-6zM248 118h6v6h-6zM230 124h6v6h-6zM236 130h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M248 124h6v6h-6zM242 130h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M328 88h6v6h-6zM340 112h6v6h-6zM316 124h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M310 100h6v6h-6zM328 130h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M316 118h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M316 88h6v6h-6zM340 100h6v6h-6zM316 130h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M334 100h6v6h-6zM322 106h6v6h-6zM334 118h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M310 112h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M322 100h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M310 106h6v6h-6zM340 106h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M322 118h6v6h-6zM328 124h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M316 94h6v6h-6zM322 94h6v6h-6zM328 106h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M322 124h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M316 100h6v6h-6zM334 112h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M322 88h6v6h-6zM316 106h6v6h-6zM334 106h6v6h-6zM316 112h6v6h-6zM322 112h6v6h-6zM328 112h6v6h-6zM328 118h6v6h-6zM322 130h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M446 88h6v6h-6zM446 124h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M428 100h6v6h-6zM440 112h6v6h-6zM422 124h6v6h-6zM428 124h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M422 118h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M422 88h6v6h-6zM422 100h6v6h-6zM446 100h6v6h-6zM422 130h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M440 106h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M416 94h6v6h-6zM446 94h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M422 112h6v6h-6zM440 130h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M440 88h6v6h-6zM428 106h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M434 100h6v6h-6zM428 118h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M428 88h6v6h-6zM434 112h6v6h-6zM434 124h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M440 100h6v6h-6zM440 118h6v6h-6zM428 130h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M434 106h6v6h-6zM434 118h6v6h-6zM434 130h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M434 88h6v6h-6zM422 94h6v6h-6zM428 94h6v6h-6zM434 94h6v6h-6zM440 94h6v6h-6zM428 112h6v6h-6zM440 124h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M556 88h6v6h-6zM544 100h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M538 88h6v6h-6zM538 106h6v6h-6zM556 124h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M556 94h6v6h-6zM544 106h6v6h-6zM556 106h6v6h-6zM526 118h6v6h-6zM538 130h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M556 100h6v6h-6zM538 112h6v6h-6zM550 112h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M556 130h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M544 118h6v6h-6zM550 124h6v6h-6zM544 130h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M550 88h6v6h-6zM544 94h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M538 94h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M538 100h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M532 124h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M550 130h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M544 88h6v6h-6zM550 100h6v6h-6zM550 106h6v6h-6zM544 112h6v6h-6zM532 118h6v6h-6zM544 124h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M550 94h6v6h-6zM538 118h6v6h-6zM538 124h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M632 94h6v6h-6zM662 100h6v6h-6zM662 118h6v6h-6zM662 130h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M632 100h6v6h-6zM644 100h6v6h-6zM650 124h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M632 106h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M662 124h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M644 112h6v6h-6zM656 112h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M638 100h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M638 112h6v6h-6zM650 118h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M638 88h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M650 88h6v6h-6zM656 94h6v6h-6zM638 106h6v6h-6zM644 106h6v6h-6zM638 130h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M644 94h6v6h-6zM656 130h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M650 112h6v6h-6zM656 118h6v6h-6zM650 130h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M644 130h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M656 106h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M644 88h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M638 94h6v6h-6zM650 94h6v6h-6zM650 100h6v6h-6zM656 100h6v6h-6zM650 106h6v6h-6zM656 124h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M724 100h6v6h-6zM718 112h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M730 118h6v6h-6zM730 124h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M748 124h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M724 112h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M730 94h6v6h-6zM718 106h6v6h-6zM748 106h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M748 88h6v6h-6zM730 112h6v6h-6zM748 118h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M748 94h6v6h-6zM748 100h6v6h-6zM748 112h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M730 100h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M736 88h6v6h-6zM724 106h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M742 88h6v6h-6zM736 94h6v6h-6zM742 94h6v6h-6zM736 100h6v6h-6zM742 100h6v6h-6zM730 106h6v6h-6zM736 106h6v6h-6zM742 106h6v6h-6zM736 112h6v6h-6zM742 112h6v6h-6zM736 118h6v6h-6zM742 118h6v6h-6zM736 124h6v6h-6zM742 124h6v6h-6zM736 130h6v6h-6zM742 130h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+        <g stroke="none"><path d="M834 100h6v6h-6zM804 106h6v6h-6zM828 112h6v6h-6zM804 124h6v6h-6zM816 130h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M804 88h6v6h-6zM828 100h6v6h-6zM804 130h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M816 124h6v6h-6z" fill="#1E2413" fill-opacity="0.19"/><path d="M810 94h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M822 88h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M822 100h6v6h-6zM822 112h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M810 106h6v6h-6zM816 118h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M822 94h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M834 106h6v6h-6zM804 112h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M816 94h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M816 100h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M822 106h6v6h-6zM810 118h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M810 88h6v6h-6zM816 112h6v6h-6zM810 130h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M816 88h6v6h-6zM816 106h6v6h-6zM828 106h6v6h-6zM810 112h6v6h-6zM810 124h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+
+        <text class="s3cH" x="44" y="70">CAUGHT: 85 OF 98 FLAGS</text>
+        <text class="s3cH" x="394" y="70">FALSE ALARMS: 13</text>
+        <text class="s3cH" x="624" y="70">MISSED: 48 OF 133</text>
+
+        <text class="s3cL" x="70" y="160" text-anchor="middle">given 1</text>
+        <text class="s3cS" x="70" y="176" text-anchor="middle">is a 7</text>
+        <text class="s3cL" x="156" y="160" text-anchor="middle">given 7</text>
+        <text class="s3cS" x="156" y="176" text-anchor="middle">is a 1</text>
+        <text class="s3cL" x="242" y="160" text-anchor="middle">given 8</text>
+        <text class="s3cS" x="242" y="176" text-anchor="middle">is a 3</text>
+        <text class="s3cL" x="328" y="160" text-anchor="middle">given 9</text>
+        <text class="s3cS" x="328" y="176" text-anchor="middle">is a 4</text>
+        <text class="s3cL" x="434" y="160" text-anchor="middle">given 3</text>
+        <text class="s3cS" x="434" y="176" text-anchor="middle">CL says 8</text>
+        <text class="s3cL" x="544" y="160" text-anchor="middle">given 2</text>
+        <text class="s3cS" x="544" y="176" text-anchor="middle">CL says 8</text>
+        <text class="s3cB" x="650" y="160" text-anchor="middle">given 4</text>
+        <text class="s3cS" x="650" y="176" text-anchor="middle">is a 9</text>
+        <text class="s3cB" x="736" y="160" text-anchor="middle">given 7</text>
+        <text class="s3cS" x="736" y="176" text-anchor="middle">is a 1</text>
+        <text class="s3cB" x="822" y="160" text-anchor="middle">given 1</text>
+        <text class="s3cS" x="822" y="176" text-anchor="middle">is a 7</text>
+
+        <text class="s3cS" x="44" y="204">relabelled to the true digit</text>
+        <text class="s3cS" x="394" y="204">right labels, edited wrongly</text>
+        <text class="s3cB" x="624" y="204">no digit clears its bar</text>
+
+        <text class="s3cN" x="30" y="248">Training rows 5, 25, 0, 24 · 63, 197 · 12, 20, 28, each drawn from its own 64 pixels. The plant is declared.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - 45 of the 48 missed rows are look-alikes whose votes split, so no digit clears its bar and they land in no cell</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Confident learning against the argmax baseline<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Score both detectors on the same out-of-sample votes against the declared plant. Confident learning flags 98 rows and 85 of them are planted errors: precision 86.7 percent, recall 63.9 percent. The argmax baseline, the paper's C_confusion, flags a row whenever its given label is not among the top-voted digits. It flags 141 rows and catches 109: precision 77.3 percent, recall 82.0 percent.</p>
+        <table class="clean">
+          <tr><th>Detector, same votes, same 800 rows</th><th>Flagged</th><th>Real errors</th><th>Precision</th><th>Recall of 133</th></tr>
+          <tr><td>Confident learning, out of sample</td><td>98</td><td>85</td><td>86.7%</td><td>63.9%</td></tr>
+          <tr><td>Argmax disagrees (C_confusion)</td><td>141</td><td>109</td><td>77.3%</td><td>82.0%</td></tr>
+          <tr><td>Confident learning, in sample (the leak)</td><td>42</td><td>40</td><td>95.2%</td><td>30.1%</td></tr>
+        </table>
+        <p>The baseline finds more errors and raises more false alarms: 32 of its 141 flags are correct labels, against 13 of 98. Per-class thresholds trade some recall for precision, and which side of the trade you want depends on what happens to a flag. If every flag goes to a human reviewer, precision is reviewer time. If flags are relabelled automatically, every false alarm writes a new error into the data: all 13 of confident learning's false alarms were relabelled wrongly, while all 85 true catches went to their true digit. On twenty seeds of the same setup confident learning averages precision 88.76 percent and recall 59.57 percent, so tonight's seed is typical.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What it misses, and the assumption it bends<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The 48 planted errors confident learning misses are not random. They are the look-alikes: the 7 drawn so like a 1 that its neighbours split, the 1 that half its neighbours call 7, the 9 that could pass for a 3. Their votes are spread, so the true digit's probability falls short of its bar, the given label falls short of its own, and the row lands in no cell of the joint. The same rule that protects the joint from pure noise hides these rows.</p>
+        <p>Part of the reason is the plant itself. Confident learning assumes class-conditional noise: the chance a label is flipped depends on the true class, not on the particular image. Our declared plant bends that assumption on purpose, because it picks the flips from the images that look most like the other digit, which is what tired labellers actually do. The test-set study reached a similar conclusion about real benchmarks, where errors are "primarily systematic mislabeling, not just random noise". Treat a detector's recall on image-dependent noise as lower than its paper numbers, and measure it.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Precision on real data varies by dataset<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Without a declared plant, the only way to know precision is to check a sample of flags by hand. Northcutt, Athalye and Mueller did it on the test sets of ten benchmarks: each flagged item went to five crowd workers, and it counted as an error only if fewer than 3 of 5 agreed with the given label. On average 51 percent of the algorithmically flagged candidates were confirmed as real errors. On MNIST, Table 2 shows 15 errors among 100 flagged, a precision of 15 percent. On clean data most flags are false alarms; on noisy data most are real. The same algorithm, run the same way, gives very different precision depending on how dirty the data was to begin with.</p>
+        <p>The paper's gallery of confirmed errors also shows the failure modes a reviewer will meet: an image that shows part of an object labelled as the whole, an object seen from an unusual viewpoint, and, on digits, a figure drawn so badly that any label is a guess. The authors add that their corrected labels "are not 100% perfect". A flag is a request for a human look, never a verdict.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Half the flags, on average.</strong> Across the ten benchmark test sets, a little over half of the candidates the algorithm flagged survived human review. On ImageNet's validation set 2,916 of 5,440 flags were confirmed; on CIFAR-10, 54 of 275. A team that auto-relabels every flag on a dataset like CIFAR-10 would likely introduce more errors than it removes. That is why session 6 puts a hand-checked sample into the data-edit spec.</p>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>What to ask for, if you lead the team.</strong> When someone reports "the detector found N bad labels", ask three things. How many rows were flagged, out of how many? What precision did a hand-checked random sample of the flags show, and how big was the sample? And how were the probabilities produced: which model, out of sample by how many folds? A flag count without a checked sample and a fold count is not yet a finding.</p>
+    </div>
+  </section>
+
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Confident learning by hand, on the real digits</h2>
+      <span class="tag demo">★ 22 min · everyone builds</span>
+    </div>
+    <p class="lede">Six steps in plain numpy, continuing from session 1's steps 1 to 4: the digits, the seeded split, the frozen kNN and the declared plant. Run those once, in order, then continue here in the same session, because the fold shuffle below draws from the same seeded generator. Every printed line is the script's real output, and it matches the session 4 bench row for row.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The pipeline. Out-of-sample votes from four folds feed per-class bars, which feed the confident joint, whose off-diagonal cells are the 98 flagged rows. The flags feed one edit, remove or relabel, and the edited training set goes to the frozen kNN, which is scored on the locked 500-digit test set: remove 479 correct, relabel 478 correct, with 85 of the 98 relabels going to the true digit.">
+        <defs>
+          <filter id="s3dSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="71" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s3dHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s3dAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s3dH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s3dL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s3dS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s3dB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s3dW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s3dN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s3dH" x="30" y="26">SIX STEPS: VOTES, BARS, JOINT, FLAGS, ONE EDIT, ONE SCORE</text>
+
+        <g filter="url(#s3dSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="30" y="56" width="180" height="58" rx="8" transform="rotate(-0.6 120 85)" fill="url(#s3dHc)"/>
+          <rect x="240" y="56" width="180" height="58" rx="8" transform="rotate(0.5 330 85)" fill="#F1F4E6"/>
+          <rect x="450" y="56" width="180" height="58" rx="8" transform="rotate(-0.4 540 85)" fill="#F1F4E6"/>
+          <rect x="660" y="56" width="190" height="58" rx="8" transform="rotate(0.6 755 85)" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M212 85 L234 85" marker-end="url(#s3dAr)"/>
+          <path d="M422 85 L444 85" marker-end="url(#s3dAr)"/>
+          <path d="M632 85 L654 85" marker-end="url(#s3dAr)"/>
+          <path d="M755 118 C755 150 300 138 232 166" marker-end="url(#s3dAr)"/>
+          <rect x="120" y="170" width="210" height="58" rx="8" transform="rotate(0.4 225 199)" fill="#FFFFFF"/>
+          <rect x="380" y="170" width="180" height="58" rx="8" transform="rotate(-0.4 470 199)" fill="#3D4A1C" stroke="#3D4A1C"/>
+          <rect x="610" y="170" width="200" height="58" rx="8" transform="rotate(0.3 710 199)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M334 199 L372 199" marker-end="url(#s3dAr)"/>
+          <path d="M564 199 L602 199" marker-end="url(#s3dAr)"/>
+          <!-- padlock doodle -->
+          <rect x="784" y="186" width="14" height="12" rx="2" stroke="#3D4A1C"/>
+          <path d="M787 186 L787 182 C787 176 795 176 795 182 L795 186" stroke="#3D4A1C"/>
+        </g>
+
+        <text class="s3dL" x="44" y="80">Out-of-sample votes</text>
+        <text class="s3dS" x="44" y="98">4 folds, kNN k = 10</text>
+        <text class="s3dL" x="254" y="80">Per-class bars</text>
+        <text class="s3dS" x="254" y="98">t_j = mean self-vote</text>
+        <text class="s3dL" x="464" y="80">Confident joint</text>
+        <text class="s3dS" x="464" y="98">10 x 10 counts</text>
+        <text class="s3dW" x="674" y="80">98 flagged</text>
+        <text class="s3dW" x="674" y="98">the off-diagonal cells</text>
+        <text class="s3dL" x="134" y="194">Edit: remove or relabel</text>
+        <text class="s3dS" x="134" y="212">remove 479, relabel 478</text>
+        <text class="s3dW" x="394" y="194">Frozen model</text>
+        <text class="s3dW" x="394" y="212">kNN, k = 10</text>
+        <text class="s3dL" x="624" y="194">Locked test set</text>
+        <text class="s3dS" x="624" y="212">500 digits, scored only</text>
+        <text class="s3dB" x="225" y="250" text-anchor="middle">relabelled right: 85 of 98</text>
+
+        <text class="s3dN" x="30" y="284">Baseline on the given labels: 457 of 500. The detector never sees the test set; it only picks rows to edit.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the test set sits at the end of the line and feeds nothing back into the detector</figcaption>
+    </figure>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Out-of-sample votes.</strong> Assign each of the 800 training rows to one of four folds, shuffled with the seeded generator. For each fold, fit kNN on the other three and let it vote on the held-out rows. The result is an 800 by 10 table of vote counts out of 10; divide by 10 and it is the probability table confident learning needs. Row 5 is the 7 labelled 1 from session 1.</p>
+        <div class="prompt-box good"><span class="label">★ Step 1 · out-of-sample votes, four folds</span># continues from session 1, steps 1 to 4 (X, y, train, test, rng, K, score, g_train)
+folds = np.arange(800) % 4
+rng.shuffle(folds)
+Xtr = X[train]
+
+def knn_votes(Xa, ya, Xq):
+    D = ((Xq[:, None, :] - Xa[None, :, :]) ** 2).sum(-1)
+    nb = np.argsort(D, axis=1, kind="stable")[:, :K]
+    return np.array([np.bincount(ya[row], minlength=10) for row in nb])
+
+V = np.zeros((800, 10), dtype=int)
+for f in range(4):
+    hold = folds == f
+    V[hold] = knn_votes(Xtr[~hold], g_train[~hold], Xtr[hold])
+print(V[5], "given", g_train[5])
+# [0 2 0 0 0 0 0 8 0 0] given 1</div>
+      </div>
+      <div class="step">
+        <p><strong>One bar per digit.</strong> For each digit j, average the self-confidence of the rows given j: the sum of their votes for j, divided by ten times their count. Look at the first two numbers before moving on.</p>
+        <div class="prompt-box good"><span class="label">★ Step 2 · per-class thresholds</span>n = np.bincount(g_train, minlength=10)
+S = np.array([V[g_train == j, j].sum() for j in range(10)])
+t = S / (10 * n)
+print(np.round(t, 2))
+# [1.   0.49 0.94 0.54 0.59 0.95 0.98 0.66 0.58 0.6 ]</div>
+      </div>
+      <div class="step">
+        <p><strong>Count the confident joint.</strong> For each row, list the digits whose vote share clears their own bar (compared in integers, so no rounding creeps in). No digit over the bar: skip the row. Otherwise take the most-voted digit among them, keeping the given label on a tie. The row lands in C[given][suggested], and any row whose suggestion differs from its label is a flag.</p>
+        <div class="prompt-box good"><span class="label">★ Step 3 · the confident joint</span>def confident_joint(V, g):
+    n = np.bincount(g, minlength=10)
+    S = np.array([V[g == j, j].sum() for j in range(10)])
+    C = np.zeros((10, 10), dtype=int)
+    sug = g.copy()
+    for r in range(len(g)):
+        over = [l for l in range(10) if V[r, l] * n[l] &gt;= S[l]]
+        if not over:
+            continue
+        top = max(V[r, l] for l in over)
+        best = [l for l in over if V[r, l] == top]
+        j = g[r] if g[r] in best else best[0]
+        C[g[r], j] += 1
+        sug[r] = j
+    return C, sug
+
+C, sug = confident_joint(V, g_train)
+flag = sug != g_train
+print(C.diagonal(), "flagged:", flag.sum())
+print([(i, j, C[i, j]) for i in range(10) for j in range(10) if i != j and C[i, j]])
+# [80 46 65 43 44 59 83 49 48 42] flagged: 98
+# [(1, 7, 14), (2, 8, 1), (3, 7, 1), (3, 8, 14), (4, 9, 7), (5, 9, 1), (7, 1, 20), (8, 1, 3), (8, 3, 17), (9, 4, 19), (9, 8, 1)]</div>
+      </div>
+      <div class="step">
+        <p><strong>Score the detector against the declared plant.</strong> This step exists only because the plant is declared: we know which labels are wrong. The same report function scores the argmax baseline on the same votes, and in step 5 it scores the leak.</p>
+        <div class="prompt-box good"><span class="label">★ Step 4 · score the detector</span>planted = g_train != y[train]
+def report(name, fl):
+    tp = (fl &amp; planted).sum()
+    print(f"{name}: flagged {fl.sum()}, caught {tp}, precision {100*tp/fl.sum():.1f}%, recall {100*tp/planted.sum():.1f}%")
+report("confident learning", flag)
+# the baseline: flag when the given label is not among the top-voted digits
+report("argmax disagrees", V[np.arange(800), g_train] != V.max(1))
+# confident learning: flagged 98, caught 85, precision 86.7%, recall 63.9%
+# argmax disagrees: flagged 141, caught 109, precision 77.3%, recall 82.0%</div>
+      </div>
+      <div class="step">
+        <p><strong>Break it on purpose: the leak.</strong> Vote in sample, with every row still in the model that votes on it, and run exactly the same joint. Watch recall.</p>
+        <div class="prompt-box good"><span class="label">★ Step 5 · the leak: in-sample votes</span>Vin = knn_votes(Xtr, g_train, Xtr)
+_, sug_in = confident_joint(Vin, g_train)
+report("in-sample", sug_in != g_train)
+# in-sample: flagged 42, caught 40, precision 95.2%, recall 30.1%</div>
+      </div>
+      <div class="step">
+        <p><strong>Make the two edits and score them on the untouched test set.</strong> Remove the 98 flagged rows, or relabel them to the joint's suggestion, then hand each training set to the frozen model. Against the baseline of 457 on the given labels, both land near 479. One test digit is 0.2 points, so a one-digit difference here is not a result; session 4 has the twenty-seed sweep that says the two are about equal.</p>
+        <div class="prompt-box good"><span class="label">★ Step 6 · the two edits, scored on the untouched test set</span>print("remove:", score(Xtr[~flag], g_train[~flag]), "of 500")
+print("relabel:", score(Xtr, sug), "of 500")
+print("relabelled right:", int((sug[flag] == y[train][flag]).sum()), "of", int(flag.sum()))
+# remove: 479 of 500
+# relabel: 478 of 500
+# relabelled right: 85 of 98</div>
+      </div>
+    </div>
+
+    <table class="clean" style="margin-top:1.2rem">
+      <tr><th>Same frozen model, same 500 test digits</th><th>Training rows</th><th>Correct</th><th>Accuracy</th></tr>
+      <tr><td>The labels you were given (session 1)</td><td>800</td><td>457</td><td><strong>91.4%</strong></td></tr>
+      <tr><td>Remove what confident learning flags</td><td>702</td><td>479</td><td><strong>95.8%</strong></td></tr>
+      <tr><td>Relabel what confident learning flags</td><td>800</td><td>478</td><td><strong>95.6%</strong></td></tr>
+      <tr><td>The true labels (knowable only because the plant is declared)</td><td>800</td><td>489</td><td><strong>97.8%</strong></td></tr>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Where the leak shows up downstream.</strong> On the session 4 bench, relabelling from in-sample votes instead of out-of-sample ones leaves 95 wrong labels in the 800 instead of 61, and the frozen model scores 94.8 percent instead of 95.6. Same algorithm, same model, one missing fold split.</p>
+    </div>
+  </section>
+
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 4</h2>
+      <span class="tag exercise">30 min</span>
+    </div>
+    <ol>
+      <li><strong>Change the fold count.</strong> Re-run steps 1 to 4 with 2, 4 and 10 folds and write down the flag count, precision and recall for each. Fewer folds means each vote comes from a smaller model; more folds means more compute. Which number moves most?</li>
+      <li><strong>Swap the model.</strong> Replace the kNN votes in step 1 with out-of-sample probabilities from scikit-learn's logistic regression (cross_val_predict with method="predict_proba"), recompute the thresholds with probabilities instead of vote counts, and compare the flag list with tonight's. How many flags do the two models share?</li>
+      <li><strong>Hand-check 20 flags from your own data.</strong> Run the detector on a labelled table you own, draw 20 flags at random, and look at each one. Count how many labels are really wrong.</li>
+      <li><strong>Bring the precision estimate to session 4.</strong> Your 20-flag count, divided by 20, is your first honest precision number. Bring it, with the sample size next to it; the bench will show what the choice between removing and relabelling does with a precision like yours.</li>
+    </ol>
+  </section>
+
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <p>Clear all three and session 3 gets stamped in your passport.</p>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · On tonight's 800 digits, a row given 1 counts as confidently a 1 with 0.49 of its votes, while a row given 0 needs 1.00. Why?</p>
+      <button class="qopt" type="button">A · Because 1s are more common in the training set, so they get a discount</button>
+      <button class="qopt" type="button">B · Because each digit's bar is the average self-confidence of the rows given that digit; the model is sure about almost every 0 and unsure about 1s the plant has mixed with 7s, so the bars differ</button>
+      <button class="qopt" type="button">C · Because the paper sets the bar for 1 to 0.49 by hand</button>
+      <button class="qopt" type="button">D · Because kNN cannot produce probabilities above 0.5 for thin digits like 1</button>
+      <p class="qwhy">t_j is computed from the data: the mean probability the model gives rows labelled j for label j. A per-class bar is what makes the method robust to classes the model is naturally more or less confident about, and to class imbalance.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="3">
+      <p class="qtext">2 · The argmax baseline catches 109 planted errors against confident learning's 85. Why might a team still prefer confident learning?</p>
+      <button class="qopt" type="button">A · Because the argmax baseline is not a real published method</button>
+      <button class="qopt" type="button">B · Because confident learning always finds more errors on real data</button>
+      <button class="qopt" type="button">C · Because recall does not matter when cleaning labels</button>
+      <button class="qopt" type="button">D · Because it trades recall for precision: 86.7 percent of its 98 flags are real against 77.3 percent of the baseline's 141, and per-class bars stop a confident class from being waved through or an unsure one from being flagged wholesale; if flags are relabelled automatically, each false alarm writes a new error</button>
+      <p class="qwhy">Neither detector wins outright. The baseline flags 32 correct labels, confident learning 13. Which trade you want depends on what happens to a flag: human review makes precision a cost in reviewer time; automatic relabelling makes it a cost in new errors.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · Run the same confident joint on in-sample votes and recall drops from 63.9 to 30.1 percent, while precision rises to 95.2. What happened?</p>
+      <button class="qopt" type="button">A · Every row is its own nearest neighbour at distance zero, so it always casts one vote for its own label; only the most blatant errors survive that self-vote, which is why the few flags are nearly all right and most errors go unflagged</button>
+      <button class="qopt" type="button">B · In-sample votes are more accurate, so the detector is simply stricter</button>
+      <button class="qopt" type="button">C · The thresholds are wrong because they were computed on the test set</button>
+      <button class="qopt" type="button">D · Four folds is too few; with ten folds in sample would match out of sample</button>
+      <p class="qwhy">This is detector leakage: the row's own label leaks into the judgement of that label. The high precision is a symptom, not a strength. Over twenty seeds in-sample recall averages 32.45 percent against 59.57 out of sample.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Northcutt, Jiang, Chuang (2021), Confident Learning, JAIR 70</span><span class="note">The two inputs, out-of-sample probabilities, k = 4, per-class thresholds, the confident joint and its collision rule, calibration to Q, the pruning variants and the class-conditional assumption, read from the full text</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">MIT, Introduction to Data-Centric AI, label errors lecture and lab</span><span class="note">Cross-validated probabilities, class thresholds as average predicted probability, and the implement-it-yourself lab, read from the lecture notes</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Northcutt, Athalye, Mueller (2021), label errors in test sets</span><span class="note">The five-worker check, the 51 percent average, MNIST's 15 of 100 and the failure modes, read from the NeurIPS paper</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">The cleanlab library</span><span class="note">Named, not taught; the algorithm is implemented by hand so every flag can be checked</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Every number in the build-along</span><span class="note">Computed on the UCI Optical Recognition of Handwritten Digits (Alpaydin and Kaynak, 1998); the noise plant is constructed and declared</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Every fact on this page, and its verification tier, is recorded in the course's source map.</p>
+  </section>
+
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 3 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Two inputs</b><span>Out-of-sample predicted probabilities and the given labels. Any probabilistic model will do.</span></div>
+      <div class="cheat-item"><b>Out of sample or nothing</b><span>k-fold, k = 4. In sample, recall fell from 63.9 to 30.1 percent.</span></div>
+      <div class="cheat-item"><b>t_j = mean self-confidence</b><span>One bar per class: here 1.00 for 0s, 0.49 for 1s.</span></div>
+      <div class="cheat-item"><b>The confident joint</b><span>Row = given, column = suggested. Off-diagonals are the flags: 98 on the 800.</span></div>
+      <div class="cheat-item"><b>Argmax vs CL</b><span>141 flags at 77.3 percent precision against 98 at 86.7: more recall, more false alarms.</span></div>
+      <div class="cheat-item"><b>Check a sample by hand</b><span>Precision swings by dataset: 51 percent on average, 15 percent on MNIST.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>You have 98 flags. Now what? Session 4 is the data-edit bench: every edit you can make to the 800 rows, remove, relabel, drop the ambiguous, add more, shift the weakest digit, run live on the frozen model, with a second counter that shows how many wrong labels each one leaves behind. Bring your 20-flag precision estimate.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 3 of 6 · learn-data-centric-ai-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="02-when-labellers-disagree.html">← Prev: When labellers disagree</a> &nbsp;·&nbsp; <a href="04-the-data-edit-bench.html">Next: The data-edit bench →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=3"></script>
+</body>
+</html>

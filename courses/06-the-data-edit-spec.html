@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 6 of 6, the capstone. Beat the bench with data edits only, then write the one-page data-edit spec that lets someone else audit it and rerun it: freeze list, test-set rule, guideline version, detector settings, a per-row edit log, a result table, an audited precision and a stopping rule.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="The data-edit spec - learn data-centric ai with phoebe">
+<meta property="og:description" content="Session 6 of 6. 96.6 percent on the same frozen model from data edits only, a 20-flag audit that finds 17 real errors, and a second pass that flags 6 rows and moves accuracy by one digit: the signal to stop.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/courses/06-the-data-edit-spec.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The data-edit spec - learn data-centric ai with phoebe">
+<meta name="twitter:description" content="Session 6 of 6. Beat the bench, model untouched, then write the edit down so it outlives the model.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-data-centric-ai-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 6 · The data-edit spec - learn data-centric ai with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=3">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-data-centric-ai-with-phoebe</a> / Session 6 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Data-Centric AI with Phoebe · Session 6 of 6</div>
+    <h1>The data-edit <span class="accent">spec</span></h1>
+    <p class="sub">Five sessions of edits are worth very little if nobody can say afterwards which rows changed, why, and whether the gain was real. Tonight is the capstone. First you beat the bench with data edits only, the model untouched, and learn to read a win honestly when one test digit is 0.2 points. Then you write the edit down as a one-page spec: what was frozen, what rule the labels follow, which detector flagged which rows, who reviewed them, and what the result does and does not prove. Last, you audit the detector without an answer key and set the rule that tells you when to stop cleaning.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Capstone</span>
+      <span class="chip audience">ML engineers, data leads, labelling leads</span>
+      <span class="chip audience">Python, the session 4 bench</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Beat, write, audit</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: the spec</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where we start</h2>
+    </div>
+    <p class="lede">You have a frozen model, a locked test set, a declared noise plant, a detector that finds wrong labels out of sample, a bench that scores every edit, and a way to find the weak slice without peeking. What you do not have yet is the document. A data edit that lives in someone's notebook is gone the day they change teams. A data edit written as a spec can be audited by a reviewer, rerun by a stranger, and reused when the next model arrives.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+      <span class="pill">★ Build-along = run the code yourself</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with tonight.</strong> A combination of data edits that takes the frozen model to 96.6 percent against a 91.4 percent baseline, the discipline to judge it against twenty-seed means rather than one lucky digit, a filled one-page data-edit spec another person could rerun, a 20-flag audit that estimates the detector's precision without an answer key, and a stopping rule written down before the next cleaning pass starts.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers beating the benchmark by data edits only</span>
+      <h2>Beat the bench, model untouched</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">The Data-Centric AI Competition of 2021 set the format this capstone copies: "improve a dataset given a fixed model", scored on accuracy, submissions closed on 4 September 2021. Tonight's version runs on the session 4 bench. The best preset on the 800 rows alone is 96.0 percent, 480 of 500, from relabelling the flags and shifting the weakest digit. The best combination anywhere on the bench is 96.6 percent, 483, on the 1,297 rows with relabelling and the ambiguous rows dropped. The ceiling, the same model on the true labels, is 97.8 percent. The hard part is not finding a higher number; it is knowing whether a higher number means anything.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two accuracy scales from 88 to 100 percent at 60 pixels per point. Top, this seed: baseline 91.4 percent, 457 of 500; best on the 800 alone 96.0 percent, 480; best overall 96.6 percent, 483; ceiling on the true labels 97.8 percent, 489. A rust band 12 pixels wide next to 96.6 marks one test digit, 0.2 points. Bottom, twenty-seed means: baseline 89.97, relabel 94.45, relabel plus shift 94.52, collect plus clean 94.60, and the true-label reference 97.26. The three edit means all fit inside one test digit.">
+        <defs>
+          <filter id="s6aSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="61" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s6aHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#A63F1C" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s6aAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s6aH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s6aL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s6aS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s6aB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s6aV { font: 800 16px Inter, sans-serif; fill: #3D4A1C; }
+          .s6aA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s6aN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s6aH" x="30" y="26">500 TEST DIGITS: EVERY ONE IS WORTH 0.2 POINTS</text>
+        <text class="s6aS" x="30" y="44">scale: 60px = 1 point · rust band = one test digit, 12px wide</text>
+        <text class="s6aA" x="30" y="64">THIS SEED, 20210921</text>
+        <text class="s6aA" x="30" y="234">TWENTY SEEDS, MEANS</text>
+
+        <g filter="url(#s6aSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- axis 1 -->
+          <path d="M100 150 L820 150"/>
+          <path d="M100 150 L100 156 M220 150 L220 156 M340 150 L340 156 M460 150 L460 156 M580 150 L580 156 M700 150 L700 156 M820 150 L820 156" stroke="#545B44"/>
+          <path d="M304 150 L304 108" stroke="#545B44"/>
+          <path d="M580 150 L580 108" stroke="#3D4A1C"/>
+          <path d="M616 150 L616 110" stroke="#3D4A1C"/>
+          <circle cx="616" cy="108" r="4" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <rect x="604" y="114" width="12" height="36" rx="1" fill="url(#s6aHc)" stroke="#A63F1C"/>
+          <path d="M688 150 L688 182" stroke="#3D4A1C" stroke-dasharray="4 4"/>
+          <path d="M608 158 L608 184" stroke="#A63F1C"/>
+          <!-- axis 2 -->
+          <path d="M100 320 L820 320"/>
+          <path d="M100 320 L100 326 M220 320 L220 326 M340 320 L340 326 M460 320 L460 326 M580 320 L580 326 M700 320 L700 326 M820 320 L820 326" stroke="#545B44"/>
+          <path d="M218 320 L218 282" stroke="#545B44"/>
+          <rect x="487" y="286" width="12" height="34" rx="1" fill="url(#s6aHc)" stroke="#A63F1C"/>
+          <path d="M487 320 L487 282 M491 320 L491 282 M496 320 L496 282" stroke="#3D4A1C"/>
+          <path d="M656 320 L656 350" stroke="#3D4A1C" stroke-dasharray="4 4"/>
+          <path d="M493 328 L493 352" stroke="#A63F1C"/>
+        </g>
+
+        <text class="s6aS" x="100" y="170" text-anchor="middle">88</text>
+        <text class="s6aS" x="220" y="170" text-anchor="middle">90</text>
+        <text class="s6aS" x="340" y="170" text-anchor="middle">92</text>
+        <text class="s6aS" x="460" y="170" text-anchor="middle">94</text>
+        <text class="s6aS" x="580" y="170" text-anchor="middle">96</text>
+        <text class="s6aS" x="700" y="170" text-anchor="middle">98</text>
+        <text class="s6aS" x="820" y="170" text-anchor="middle">100</text>
+        <text class="s6aS" x="304" y="82" text-anchor="middle">baseline, 457 of 500</text>
+        <text class="s6aV" x="304" y="100" text-anchor="middle">91.4</text>
+        <text class="s6aS" x="574" y="82" text-anchor="end">best on the 800 alone, 480</text>
+        <text class="s6aV" x="574" y="100" text-anchor="end">96.0</text>
+        <text class="s6aS" x="626" y="82">best overall, 483</text>
+        <text class="s6aV" x="626" y="100">96.6</text>
+        <text class="s6aV" x="696" y="198">97.8</text>
+        <text class="s6aS" x="696" y="214">ceiling: true labels, 489</text>
+        <text class="s6aB" x="600" y="198" text-anchor="end">one test digit = 0.2 points</text>
+        <text class="s6aS" x="600" y="214" text-anchor="end">one digit less is 96.4, a different edit</text>
+
+        <text class="s6aS" x="100" y="340" text-anchor="middle">88</text>
+        <text class="s6aS" x="220" y="340" text-anchor="middle">90</text>
+        <text class="s6aS" x="340" y="340" text-anchor="middle">92</text>
+        <text class="s6aS" x="460" y="340" text-anchor="middle">94</text>
+        <text class="s6aS" x="580" y="340" text-anchor="middle">96</text>
+        <text class="s6aS" x="700" y="340" text-anchor="middle">98</text>
+        <text class="s6aS" x="820" y="340" text-anchor="middle">100</text>
+        <text class="s6aS" x="218" y="256" text-anchor="middle">baseline mean</text>
+        <text class="s6aV" x="218" y="274" text-anchor="middle">89.97</text>
+        <text class="s6aS" x="508" y="256">relabel · relabel + shift · collect + clean</text>
+        <text class="s6aV" x="508" y="276">94.45 · 94.52 · 94.60</text>
+        <text class="s6aB" x="484" y="368" text-anchor="end">all three fit inside one digit</text>
+        <text class="s6aV" x="664" y="368">97.26</text>
+        <text class="s6aS" x="664" y="384">reference mean, true labels</text>
+
+        <text class="s6aN" x="30" y="408">Seeds 20210904 to 20210923. The 96.6 combination was not in the sweep: one seed, promising, not proven.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three edits that look different on one seed sit within 0.15 points of each other over twenty; judge a win against the band, not the bar</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The capstone rules<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Only data edits.</strong> Relabel, remove, drop ambiguous rows, add shifted copies, add the 497 extra rows: anything the knobs on the <a href="04-the-data-edit-bench.html">session 4 bench</a> allow, in any combination.</p>
+        <p><strong>The model and the seed are frozen.</strong> kNN with k = 10, squared distance on the 64 raw pixels, seed 20210921 for the split and the plant. If you want to try k = 5, that is a model-centric experiment and belongs in a different document.</p>
+        <p><strong>The test set is untouched.</strong> Not relabelled, not filtered, and not used to pick the edit. Reading per-digit test accuracy after the choice is fine; choosing by it is not.</p>
+        <p><strong>Every edit is logged.</strong> A row that changed without a line in the log is a row nobody can defend. Part 2 is that log.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>How to read a win<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>On 500 test digits, one digit is 0.2 points. So 96.6 against 96.4 is one digit, and one digit on one seed is not a win. It could flip if the split moved. The honest comparison is against the twenty-seed sweep, where it exists: relabel averages 94.45, relabel plus shift 94.52, and collect plus clean 94.60. Those three edits look different on the shipped seed, and over twenty seeds they are within 0.15 points of each other, less than one test digit. Treat them as about equal.</p>
+        <p>The 96.6 combination beats the best 800-row preset by three digits, 0.6 points, on one seed. That is a promising lead, not a finding: the sweep did not run it. Two combinations tie at 483, the 1,297 rows with relabel and drop ambiguous, and the 1,297 with remove, drop ambiguous and shift. When two edits tie, prefer the one with fewer steps and fewer rows: it is cheaper to explain and to rerun.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why the ceiling is not 100 percent<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Trained on the true labels, the frozen model still misses 11 of the 500 test digits: 489 correct, 97.8 percent. Those misses are not label errors in training, because there are none. They are digits the model cannot separate: a 4 whose ten nearest training images happen to be 9s, a sloppy 8 that sits in the 3s' neighbourhood. No data edit to the labels can fix them. Only more coverage near those shapes, or a different model, could.</p>
+        <p>That makes the gap you are allowed to close 32 digits, from 457 to 489, and not 43. On this seed the best combination closes 26 of them. Quoting "96.6 against a perfect 100" would overstate what is left for the data to do.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>The competition that fixed the model.</strong> DeepLearning.AI and Landing AI ran the Data-Centric AI Competition on a noisy set of handwritten Roman numerals, with every entrant training the same model and changing only the data: "fixing incorrect labels, adding examples that represent edge cases, apply data augmentation". Submissions closed on 4 September 2021 and were scored on accuracy. The fixed model is reported as a cut-down ResNet50 on 32 by 32 images, with about 1,500 starting images and a cap of 10,000; those details come from participants' write-ups, not an official page.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the spec</span>
+      <h2>Write the edit down so it outlives the model</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">A data-edit spec is one page with seven fields. Each field answers a question somebody will ask six months from now, usually when a new model arrives or a number looks too good. Which model was frozen, and how? Which test file, and was it ever touched? Which version of the label rule? Which detector, with which settings? Which rows changed, from what to what, and who said so? What did it buy on both counters? And what does the result not prove?</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 434" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A one-page form with seven fields: freeze list, test-set rule, label guideline version, detector and settings, the edit log in rust, the result table, and what not to claim. Arrows run from the detector and edit log fields to an audit box, where a reviewer draws 20 flags at random and finds 17 real, illustrated with real training row 5, given the label 1. Arrows run from the freeze list, edit log and result table to a rerun box, where someone who did not build it rebuilds the rows and must print 483 of 500 again.">
+        <defs>
+          <filter id="s6bSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="62" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s6bHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s6bAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s6bH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s6bL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s6bS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s6bB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s6bW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s6bN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s6bH" x="30" y="26">ONE PAGE OF FIELDS, TWO JOBS: SOMEONE AUDITS IT, SOMEONE RERUNS IT</text>
+
+        <g filter="url(#s6bSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- the form -->
+          <rect x="40" y="56" width="380" height="340" rx="6" transform="rotate(-0.4 230 226)" fill="#FFFFFF"/>
+          <path d="M56 112 L404 112 M56 158 L404 158 M56 204 L404 204 M56 250 L404 250 M56 296 L404 296 M56 342 L404 342" stroke="#CCD3BC"/>
+          <rect x="52" y="252" width="356" height="42" rx="4" transform="rotate(0.3 230 273)" fill="#A63F1C" stroke="#A63F1C"/>
+          <!-- paperclip doodle -->
+          <path d="M372 70 L372 46 C372 40 384 40 384 46 L384 74 C384 80 376 80 376 74 L376 52" stroke="#545B44"/>
+          <!-- audit box -->
+          <rect x="520" y="70" width="330" height="112" rx="8" transform="rotate(0.5 685 126)" fill="#F1F4E6"/>
+          <rect x="776" y="96" width="56" height="56" rx="3" fill="#FFFFFF" stroke="#A63F1C"/>
+          <!-- rerun box -->
+          <rect x="520" y="250" width="330" height="120" rx="8" transform="rotate(-0.5 685 310)" fill="url(#s6bHc)"/>
+          <!-- arrows to audit -->
+          <path d="M426 222 C470 210 480 150 512 134" marker-end="url(#s6bAr)"/>
+          <path d="M426 270 C486 250 490 170 512 150" marker-end="url(#s6bAr)"/>
+          <!-- arrows to rerun -->
+          <path d="M426 88 C500 104 470 250 512 278" marker-end="url(#s6bAr)"/>
+          <path d="M426 280 C470 292 486 300 512 302" marker-end="url(#s6bAr)"/>
+          <path d="M426 318 C470 330 490 332 512 332" marker-end="url(#s6bAr)"/>
+        </g>
+        <g stroke="none"><path d="M792 118h6v6h-6zM792 130h6v6h-6z" fill="#1E2413" fill-opacity="0.06"/><path d="M816 130h6v6h-6zM804 142h6v6h-6z" fill="#1E2413" fill-opacity="0.12"/><path d="M792 142h6v6h-6z" fill="#1E2413" fill-opacity="0.25"/><path d="M792 100h6v6h-6z" fill="#1E2413" fill-opacity="0.31"/><path d="M792 106h6v6h-6zM798 118h6v6h-6zM816 124h6v6h-6z" fill="#1E2413" fill-opacity="0.38"/><path d="M810 100h6v6h-6zM804 136h6v6h-6z" fill="#1E2413" fill-opacity="0.44"/><path d="M810 118h6v6h-6zM792 124h6v6h-6zM810 130h6v6h-6z" fill="#1E2413" fill-opacity="0.50"/><path d="M798 106h6v6h-6z" fill="#1E2413" fill-opacity="0.56"/><path d="M804 112h6v6h-6z" fill="#1E2413" fill-opacity="0.62"/><path d="M810 106h6v6h-6zM798 130h6v6h-6z" fill="#1E2413" fill-opacity="0.69"/><path d="M810 112h6v6h-6z" fill="#1E2413" fill-opacity="0.75"/><path d="M804 106h6v6h-6zM804 118h6v6h-6zM798 136h6v6h-6z" fill="#1E2413" fill-opacity="0.81"/><path d="M804 130h6v6h-6z" fill="#1E2413" fill-opacity="0.88"/><path d="M810 124h6v6h-6z" fill="#1E2413" fill-opacity="0.94"/><path d="M798 100h6v6h-6zM804 100h6v6h-6zM798 124h6v6h-6zM804 124h6v6h-6zM798 142h6v6h-6z" fill="#1E2413" fill-opacity="1.00"/></g>
+
+        <text class="s6bL" x="60" y="85">1 · Freeze list</text>
+        <text class="s6bS" x="60" y="102">kNN, k = 10, squared distance, seed 20210921</text>
+        <text class="s6bL" x="60" y="131">2 · Test-set rule</text>
+        <text class="s6bS" x="60" y="148">never edited, never used to choose an edit</text>
+        <text class="s6bL" x="60" y="177">3 · Label guideline version</text>
+        <text class="s6bS" x="60" y="194">the rule the labels follow, from session 2</text>
+        <text class="s6bL" x="60" y="223">4 · Detector and its settings</text>
+        <text class="s6bS" x="60" y="240">4 folds, out of sample, per-class thresholds</text>
+        <text class="s6bW" x="60" y="269">5 · Edit log, one line per row</text>
+        <text class="s6bW" x="60" y="286">row, old, new, votes, reviewer</text>
+        <text class="s6bL" x="60" y="315">6 · Result table</text>
+        <text class="s6bS" x="60" y="332">measured and planted counters, side by side</text>
+        <text class="s6bL" x="60" y="361">7 · What not to claim</text>
+        <text class="s6bS" x="60" y="378">no win built on one or two digits, one seed</text>
+
+        <text class="s6bL" x="536" y="94">Audit</text>
+        <text class="s6bS" x="536" y="114">draw 20 flags at random</text>
+        <text class="s6bS" x="536" y="130">and check each one by hand</text>
+        <text class="s6bB" x="536" y="152">17 of 20 real: about 85%</text>
+        <text class="s6bS" x="804" y="170" text-anchor="middle">row 5, given 1</text>
+        <text class="s6bL" x="536" y="274">Rerun</text>
+        <text class="s6bS" x="536" y="294">someone who did not build it</text>
+        <text class="s6bS" x="536" y="310">rebuilds the rows from the log</text>
+        <text class="s6bS" x="536" y="326">on the frozen model, same seed</text>
+        <text class="s6bB" x="536" y="350">must print 483 of 500 again</text>
+
+        <text class="s6bN" x="30" y="420">Every field answers a question someone will ask later: which model, which test file, which rule, which rows, who said so.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the form is not paperwork: two of its fields feed an audit, three feed a rerun, and the edit log feeds both</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The edit log: one line per touched row<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The edit log is the field the other six exist to make trustworthy. One line per row the edit touched: the row id, the old label, the new label or "removed", what the detector said and how strongly, who reviewed it, and which guideline version they reviewed it against. With that line, any single change can be questioned and reversed. Without it, the only way to undo a bad cleaning pass is to throw the whole dataset away.</p>
+        <p>Here is a constructed sample, four lines long. The rows, labels and votes are real outputs of the session 3 detector on the 800 training digits; the reviewer column and the decisions on the two false alarms are constructed to show what a reviewed log looks like.</p>
+        <table class="clean">
+          <tr><th>Row</th><th>Old</th><th>New</th><th>Detector votes (of 10)</th><th>Reviewer</th><th>Guideline</th></tr>
+          <tr><td>5</td><td>1</td><td>7</td><td>8 for 7, 2 for 1</td><td>R1: confirmed, it has a top bar</td><td>v2</td></tr>
+          <tr><td>25</td><td>7</td><td>1</td><td>7 for 1, 3 for 7</td><td>R1: confirmed, single stroke</td><td>v2</td></tr>
+          <tr><td>0</td><td>8</td><td>3</td><td>7 for 3, 3 for 8</td><td>R2: confirmed, open on the left</td><td>v2</td></tr>
+          <tr><td>63</td><td>3</td><td>3 (kept)</td><td>7 for 8, 3 for 3</td><td>R2: false alarm, label stands</td><td>v2</td></tr>
+        </table>
+        <p>Row 63 is the one that matters. The detector suggested 8; the digit is a 3. On the bench, the 13 false alarms among the 98 flags were all relabelled wrongly, because nobody reviewed them. A reviewer column is what turns a detector's suggestion into a decision.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The freeze list, and the rest of the form<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Freeze list.</strong> The model and every setting that decides its output: kNN, k = 10, squared Euclidean distance on 64 integer pixels, distance ties to the earlier training row, vote ties to the nearest tied neighbour, seed 20210921, no preprocessing, accuracy as the metric, and a checksum of the test file so anyone can prove it is the same 500 digits.</p>
+        <p><strong>Test-set rule.</strong> Never edited, never used for decisions. The MIT notes: evaluation examples "should only be used for computing evaluation scores, not for any modeling decisions."</p>
+        <p><strong>Guideline version</strong> from session 2, <strong>detector and settings</strong> from session 3 (four folds, per-class thresholds, out of sample), <strong>result table</strong> with both counters from session 4, and <strong>what not to claim</strong>: no one-seed, one-digit wins; no precision or recall quoted from a declared plant as if it were the real noise.</p>
+        <p>Ng's closing checklist makes a good acceptance test for the finished page. Good data is "defined consistently", has "cover of important cases", has "timely feedback from production data", and is "sized appropriately". The guideline field answers the first, the slice work of session 5 the second, the result table the fourth. The third is production monitoring, and <a href="https://phoebefu6.github.io/learn-data-observability-with-phoebe/">Data Observability ↗</a> owns it.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Versioning the dataset like code<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A spec is only as good as its link to the exact rows it describes. The simplest working pattern: keep the raw labels read-only, store the edit log as a small table next to them, and build the training set by applying the log to the raw labels. Then the dataset version is the log's version, a diff between two versions is a diff between two logs, and a reviewer can read a change the way they read a pull request.</p>
+        <p>Three habits make it hold up. Give the edit log a version that moves with the guideline version, so a rule change forces a new log. Record the detector settings in the log header, so a rerun cannot silently use different folds. And never overwrite a label in place: an overwritten label is a change with no author and no reason.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>Three transcripts of the same sentence.</strong> Ng's example of inconsistent labels is speech: one labeller writes "Um, today's weather", another "Um... today's weather", a third "Today's weather". None is wrong; the instruction left room. The fix is a guideline version, and the reason the spec records it is that a relabelled row is only correct relative to a rule. Change the rule and the same row can become an error again.</p>
+    </div>
+  </section>
+
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers auditing without an answer key and stopping</span>
+      <h2>Audit a sample, then stop on a rule</h2>
+      <span class="tag concept">5 min live</span>
+    </div>
+    <p class="lede">At work there is no declared plant. Nobody can tell you the detector's precision is 86.7 percent, because nobody knows which labels are wrong. What you can do is draw a random sample of the flags and check them by hand. That estimate goes on the spec, with its sample size. Then a second question: once the first pass is done, is another pass worth it? The answer is a rule written before the pass, not a feeling after it.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 356" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three small panels. Rows flagged: pass 1 flags 98 rows, 85 of them real errors; pass 2 flags 6 rows, 5 of them still wrong, drawn in rust. Wrong labels left in training: 133 at the start, 61 after pass 1, 57 after pass 2. Test digits correct of 500: 478 after pass 1 and 479 after pass 2, a one-digit move of 0.2 points.">
+        <defs>
+          <filter id="s6cSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="63" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s6cHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s6cAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s6cH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s6cL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s6cS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s6cB { font: 800 11px Inter, sans-serif; fill: #7C2D12; }
+          .s6cV { font: 800 16px Inter, sans-serif; fill: #3D4A1C; }
+          .s6cX { font: 800 20px Inter, sans-serif; fill: #3D4A1C; }
+          .s6cN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s6cH" x="30" y="26">EACH PASS FINDS LESS: THE SECOND ONE IS THE SIGNAL TO STOP</text>
+        <text class="s6cS" x="30" y="44">same frozen model, same 500 test digits · planted counts exist only because the plant is declared</text>
+
+        <g filter="url(#s6cSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="30" y="56" width="260" height="264" rx="8" transform="rotate(-0.4 160 188)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="310" y="56" width="260" height="264" rx="8" transform="rotate(0.3 440 188)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <rect x="590" y="56" width="260" height="264" rx="8" transform="rotate(-0.3 720 188)" fill="#FFFFFF" stroke="#CCD3BC"/>
+          <!-- panel 1: rows flagged -->
+          <path d="M60 270 L260 270" stroke="#545B44"/>
+          <rect x="90" y="120" width="50" height="150" rx="3" fill="#F1F4E6"/>
+          <rect x="190" y="261" width="50" height="9" rx="2" fill="#A63F1C" stroke="#A63F1C"/>
+          <!-- panel 2: wrong labels left -->
+          <path d="M340 270 L540 270" stroke="#545B44"/>
+          <rect x="348" y="120" width="44" height="150" rx="3" fill="url(#s6cHc)"/>
+          <rect x="418" y="201" width="44" height="69" rx="3" fill="url(#s6cHc)"/>
+          <rect x="488" y="206" width="44" height="64" rx="3" fill="url(#s6cHc)"/>
+          <!-- panel 3: test digits -->
+          <path d="M694 164 L744 164" marker-end="url(#s6cAr)"/>
+          <!-- stop-sign doodle -->
+          <path d="M816 108 L828 108 L836 116 L836 128 L828 136 L816 136 L808 128 L808 116 Z" stroke="#A63F1C"/>
+        </g>
+
+        <text class="s6cH" x="44" y="80">ROWS FLAGGED</text>
+        <text class="s6cH" x="324" y="80">WRONG LABELS LEFT</text>
+        <text class="s6cH" x="604" y="80">TEST DIGITS CORRECT OF 500</text>
+        <text class="s6cV" x="115" y="112" text-anchor="middle">98</text>
+        <text class="s6cV" x="215" y="253" text-anchor="middle">6</text>
+        <text class="s6cL" x="115" y="288" text-anchor="middle">pass 1</text>
+        <text class="s6cL" x="215" y="288" text-anchor="middle">pass 2</text>
+        <text class="s6cS" x="115" y="304" text-anchor="middle">85 real errors</text>
+        <text class="s6cB" x="215" y="304" text-anchor="middle">5 still wrong</text>
+        <text class="s6cV" x="370" y="112" text-anchor="middle">133</text>
+        <text class="s6cV" x="440" y="193" text-anchor="middle">61</text>
+        <text class="s6cV" x="510" y="198" text-anchor="middle">57</text>
+        <text class="s6cL" x="370" y="288" text-anchor="middle">start</text>
+        <text class="s6cL" x="440" y="288" text-anchor="middle">pass 1</text>
+        <text class="s6cL" x="510" y="288" text-anchor="middle">pass 2</text>
+        <text class="s6cX" x="660" y="170" text-anchor="middle">478</text>
+        <text class="s6cX" x="780" y="170" text-anchor="middle">479</text>
+        <text class="s6cL" x="660" y="192" text-anchor="middle">pass 1</text>
+        <text class="s6cL" x="780" y="192" text-anchor="middle">pass 2</text>
+        <text class="s6cB" x="720" y="236" text-anchor="middle">+1 digit = 0.2 points</text>
+        <text class="s6cS" x="720" y="252" text-anchor="middle">inside the noise on one seed</text>
+
+        <text class="s6cN" x="30" y="342">Pass 2 reran the same detector on the relabelled 800. It found 5 of the 61 wrong labels still there, and missed the other 56.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - pass 1 moved 72 wrong labels, pass 2 moved four and one test digit; the detector has run out of what it can see</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Estimate precision by hand-checking a random sample<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Northcutt, Athalye and Mueller had exactly this problem on ten public test sets: an algorithm flagged candidates, and nobody knew which were real. Their design is the one to copy. Each flagged item went to five crowd workers on Mechanical Turk, and it counted as a label error if fewer than 3 of the 5 agreed with the given label. Across the ten datasets, 51 percent of the flagged candidates were confirmed on average, and the spread was wide: on MNIST, only 15 of 100 flags were real errors. Precision is a property of the detector on this data, not of the method.</p>
+        <p>The build-along runs the small version. From the 98 flags, a random sample of 20 with seed 6: 17 were real errors, an estimate of 85 percent. On the bench we can compare it with the true precision, 86.7 percent, because the plant is declared. At work you only have the 85. With 20 items the estimate is rough: one more or one fewer real error moves it by 5 points. Write the sample size next to the number on the spec, and check a larger sample before a precision figure decides anything expensive.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The stopping rule<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Run the same detector a second time on the relabelled 800. It flags 6 rows, and 5 of them are labels that are still wrong. That sounds efficient until you look at the denominator: 61 wrong labels were left after pass 1, so pass 2 finds 5 of them and misses 56. Test accuracy moves from 478 to 479, one digit, noise. Wrong labels fall from 61 to 57.</p>
+        <p>The rule: stop when a pass flags few rows and the audited precision of its flags falls, and move the effort to where the remaining errors actually come from. The 56 the detector cannot see are the look-alikes that sit deep in the other digit's neighbourhood; no amount of re-running finds them. They are a guideline problem (session 2) or a coverage problem (session 5). Write the thresholds down before the pass starts. A constructed example: "stop when a pass flags fewer than 10 percent of the previous pass's rows, or when a 20-flag audit finds fewer than half real."</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why the audit has to be random<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>It is tempting to review the top of the list, the flags the detector is most confident about. Those are the easiest ones, and their precision is higher than the rest. An audit of the top 20 estimates the precision of the top 20, and the spec would quote it for all 98. A random draw from all the flags, with the seed recorded, estimates the precision of the whole pass, and anyone can redraw the same sample to check the reviewer.</p>
+        <p>The same logic sets who reviews. The labelerrors.com design used five independent workers and a 3-of-5 rule so that one tired reviewer could not decide an item. For a small internal audit, two reviewers who disagree on a flag is itself a finding: the guideline has a hole there.</p>
+      </div>
+    </details>
+
+    <div class="callout example">
+      <span class="ex-pill">Real world</span>
+      <p><strong>A model ranking that flips on corrected labels.</strong> On ImageNet with corrected test labels, ResNet-18 outperforms ResNet-50 if the share of originally mislabelled test examples rises by just 6 percent; on CIFAR-10, VGG-11 outperforms VGG-19 at 5 percent. A result table built on an unaudited test set can pick the wrong model. That is why the spec's test-set field records who checked it, and why the audit design comes from the paper that found the flip.</p>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>What to ask for, if you lead the team.</strong> Three things, before the cleaning starts, not after. The one-page spec, filled, so someone else could rerun it. The audited precision of the detector with its sample size, "17 of 20", never a bare percentage. And the stopping rule, written in numbers before the next pass, so that "one more pass" is a decision the page makes and not a mood the team is in.</p>
+    </div>
+  </section>
+
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Beat it, audit it, write it down</h2>
+      <span class="tag demo">★ 22 min · everyone builds</span>
+    </div>
+    <p class="lede">Four steps. The first is on the session 4 bench in your browser; the next two continue from session 3's script in numpy, steps 1 to 5, with its variables still in memory; the last is a page of plain text. Every number printed below is what the code produces.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 326" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The capstone loop. Bench knobs, 1,297 rows with relabel and drop ambiguous, feed a result table, 483 of 500 and 58 wrong labels left, which feeds an audit, 17 of 20 flags real and a second pass of 6 flags, which feeds the spec, one page in rust. The spec feeds the next model, which swaps the model and keeps the spec, and a dashed arrow returns to the bench knobs with the same spec and new rows.">
+        <defs>
+          <filter id="s6dSk" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="64" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter>
+          <pattern id="s6dHc" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(-38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#5B6C2E" stroke-width="1" opacity=".5"/></pattern>
+          <marker id="s6dAr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1E2413" stroke-width="1.6" stroke-linecap="round"/></marker>
+        </defs>
+        <style>
+          .s6dH { font: 800 12px Inter, sans-serif; fill: #1E2413; }
+          .s6dL { font: 600 12px Inter, sans-serif; fill: #1E2413; }
+          .s6dS { font: 400 11px Inter, sans-serif; fill: #545B44; }
+          .s6dW { font: 800 12px Inter, sans-serif; fill: #FFFFFF; }
+          .s6dA { font: 700 11px Inter, sans-serif; fill: #5B6C2E; }
+          .s6dN { font: 400 12px Inter, sans-serif; fill: #545B44; }
+        </style>
+
+        <text class="s6dH" x="30" y="26">THE CAPSTONE LOOP: THE SPEC IS WHAT SURVIVES TO THE NEXT MODEL</text>
+
+        <g filter="url(#s6dSk)" fill="none" stroke="#1E2413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="40" y="64" width="170" height="76" rx="8" transform="rotate(-0.6 125 102)" fill="url(#s6dHc)"/>
+          <rect x="250" y="64" width="170" height="76" rx="8" transform="rotate(0.5 335 102)" fill="#FFFFFF"/>
+          <rect x="460" y="64" width="170" height="76" rx="8" transform="rotate(-0.4 545 102)" fill="#F1F4E6"/>
+          <rect x="670" y="64" width="170" height="76" rx="8" transform="rotate(0.6 755 102)" fill="#A63F1C" stroke="#A63F1C"/>
+          <path d="M735 60 L735 52 L775 52 L775 60" stroke="#545B44"/>
+          <rect x="330" y="210" width="220" height="76" rx="8" transform="rotate(-0.4 440 248)" fill="#FFFFFF" stroke="#3D4A1C"/>
+          <path d="M214 102 L244 102" marker-end="url(#s6dAr)"/>
+          <path d="M424 102 L454 102" marker-end="url(#s6dAr)"/>
+          <path d="M634 102 L664 102" marker-end="url(#s6dAr)"/>
+          <path d="M755 146 C752 220 640 250 558 248" marker-end="url(#s6dAr)"/>
+          <path d="M324 248 C220 250 130 220 125 148" stroke-dasharray="6 5" marker-end="url(#s6dAr)"/>
+        </g>
+
+        <text class="s6dL" x="54" y="90">1 · Bench knobs</text>
+        <text class="s6dS" x="54" y="108">1,297 rows + relabel</text>
+        <text class="s6dS" x="54" y="124">+ drop ambiguous</text>
+        <text class="s6dL" x="264" y="90">2 · Result table</text>
+        <text class="s6dS" x="264" y="108">483 of 500, 96.6%</text>
+        <text class="s6dS" x="264" y="124">58 wrong labels left</text>
+        <text class="s6dL" x="474" y="90">3 · Audit</text>
+        <text class="s6dS" x="474" y="108">17 of 20 flags real</text>
+        <text class="s6dS" x="474" y="124">second pass: 6 flags</text>
+        <text class="s6dW" x="684" y="90">4 · The spec</text>
+        <text class="s6dW" x="684" y="110">one page, filled</text>
+        <text class="s6dL" x="346" y="236">5 · The next model</text>
+        <text class="s6dS" x="346" y="254">swap the model, keep the spec</text>
+        <text class="s6dS" x="346" y="270">rerun the log, compare</text>
+        <text class="s6dA" x="724" y="190" text-anchor="end">the spec outlives the model</text>
+        <text class="s6dA" x="120" y="282">same spec, new rows</text>
+
+        <text class="s6dN" x="30" y="312">Steps 1 to 4 are tonight. Step 5 is the day a new model arrives and nobody has to reverse-engineer the data.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - knobs make the number, the audit tests it, the spec keeps it; the dashed arrow is the reason to write it at all</figcaption>
+    </figure>
+
+    <div class="steps">
+      <div class="step">
+        <p><strong>Beat 96.0 on the bench, and record every readout.</strong> Open the <a href="04-the-data-edit-bench.html">session 4 bench</a>, go below the eight presets to the knobs, and look for a combination above the best 800-row preset. Add the 497 extra rows, relabel the flags, drop the ambiguous rows, keep the detector out of sample. The readout prints 96.6 percent. Write down all eight numbers, not just the headline: the spec needs the cost as well as the gain.</p>
+        <div class="prompt-box good"><span class="label">★ Step 1 · the eight readouts, copied from the bench</span>knobs: 1,297 rows, relabel flags, drop ambiguous, no shift, out of sample
+
+Test accuracy            96.6%    measured
+Correct                  483 of 500 clean test digits
+Against the baseline     +5.2 points (baseline 91.4%, true labels 97.8%)
+Training rows            1,154    measured
+Ambiguous dropped        143
+Wrong labels left        58 of 219 planted in these rows    planted
+Detector precision       88.0%    117 of 133 flags were planted errors
+Detector recall          53.4%    117 of 219 planted errors found
+
+tie: 1,297 + remove + drop ambiguous + shift also prints 483, on 1,357 rows</div>
+      </div>
+      <div class="step">
+        <p><strong>Audit a random sample of 20 flags.</strong> Back in Python, on the 800. Draw 20 of the 98 flags with a recorded seed and check each one. On the bench the true digit stands in for the human reviewer; at work this line is a person with the guideline open.</p>
+        <div class="prompt-box good"><span class="label">★ Step 2 · audit 20 flags</span># continues from session 3's script, steps 1 to 5
+# (X, y, train, g_train, Xtr, folds, knn_votes, confident_joint, flag, sug, score)
+audit_rng = np.random.default_rng(6)
+flagged = np.where(flag)[0]
+sample = audit_rng.choice(flagged, 20, replace=False)
+really_wrong = int((g_train[sample] != y[train][sample]).sum())   # stands in for a human reviewer
+print("audit:", really_wrong, "of 20 sampled flags were real errors")
+# audit: 17 of 20 sampled flags were real errors</div>
+      </div>
+      <div class="step">
+        <p><strong>Run a second pass, and read it against the stopping rule.</strong> Take the relabelled labels as the new given labels, recompute the out-of-sample votes with the same four folds, and run confident learning again. Count what it flags, how many of those are still wrong, and what it does to the test score.</p>
+        <div class="prompt-box good"><span class="label">★ Step 3 · the second pass</span>lab = sug.copy()
+planted_now = lab != y[train]
+V2 = np.zeros((800, 10), dtype=int)
+for f in range(4):
+    hold = folds == f
+    V2[hold] = knn_votes(Xtr[~hold], lab[~hold], Xtr[hold])
+_, sug2 = confident_joint(V2, lab)
+flag2 = sug2 != lab
+tp2 = int((flag2 &amp; planted_now).sum())
+print("pass 2: flagged", int(flag2.sum()), "of which still-wrong labels", tp2, "| wrong labels before pass 2:", int(planted_now.sum()))
+# pass 2: flagged 6 of which still-wrong labels 5 | wrong labels before pass 2: 61
+print("pass 1:", score(Xtr, lab), "| pass 2:", score(Xtr, sug2), "of 500")
+# pass 1: 478 | pass 2: 479 of 500
+print("wrong labels after pass 2:", int((sug2 != y[train]).sum()))
+# wrong labels after pass 2: 57</div>
+      </div>
+      <div class="step">
+        <p><strong>Write the spec.</strong> One page, plain text, in the repository next to the data. The settings below are the real ones from these six sessions; the guideline version, reviewer names, file names and the stopping thresholds are a constructed example of how to fill the fields. Leave the checksum as a field until you compute it on your own test file.</p>
+        <div class="prompt-box good"><span class="label">★ Step 4 · the one-page data-edit spec</span>DATA-EDIT SPEC · digits · v1   (constructed example on real settings)
+
+1. FREEZE LIST
+   model        kNN, k = 10, squared Euclidean on 64 integer pixels
+   tie rules    distance ties to the earlier row; vote ties to the nearest tied neighbour
+   seed         20210921 (split and plant)
+   preprocess   none, raw pixels 0 to 16
+   metric       accuracy on the 500 test digits
+   test file    sha256 of the test ids: &lt;fill in&gt;
+
+2. TEST-SET RULE
+   never relabelled, never filtered, never used to choose an edit
+
+3. LABEL GUIDELINE
+   version v2: adds the 1/7 rule from session 2
+
+4. DETECTOR
+   confident learning, 4 folds, out-of-sample votes, per-class thresholds
+   thresholds as printed: 1.00 0.49 0.94 0.54 0.59 0.95 0.98 0.66 0.58 0.60
+
+5. EDIT LOG
+   file edits_v1.csv, one line per touched row:
+   row, old label, new label or removed, votes, reviewer, guideline version
+
+6. RESULT TABLE (same frozen model, same 500 test digits)
+   baseline, 800 rows                    457   91.4%     800 rows   133 wrong left
+   relabel + shift, 800                  480   96.0%   1,084 rows    61 wrong left
+   1,297 + relabel + drop ambiguous      483   96.6%   1,154 rows    58 wrong left
+   twenty-seed means: relabel 94.45, relabel + shift 94.52, collect + clean 94.60
+
+7. AUDIT AND STOPPING RULE
+   audit: 20 random flags, seed 6, 17 real (about 85%, rough at n = 20)
+   stop when a pass flags under 10% of the previous pass's rows (constructed)
+   pass 2 flagged 6 of 98: stopped; next effort goes to the guideline
+
+8. WHAT NOT TO CLAIM
+   no win from a difference of one or two test digits on one seed
+   precision and recall exist here only because the plant is declared
+   the 96.6 result is one seed; the twenty-seed sweep did not run it</div>
+      </div>
+    </div>
+
+    <table class="clean" style="margin-top:1.2rem">
+      <tr><th>Same frozen model, same 500 test digits</th><th>Training rows</th><th>Correct</th><th>Accuracy</th></tr>
+      <tr><td>The labels you were given</td><td>800</td><td>457</td><td><strong>91.4%</strong></td></tr>
+      <tr><td>Relabel the flags, one pass</td><td>800</td><td>478</td><td><strong>95.6%</strong></td></tr>
+      <tr><td>Relabel, then a second pass</td><td>800</td><td>479</td><td><strong>95.8%</strong></td></tr>
+      <tr><td>Best on the 800 alone: relabel + shift the weakest digit</td><td>1,084</td><td>480</td><td><strong>96.0%</strong></td></tr>
+      <tr><td>Best overall: 1,297 rows, relabel, drop ambiguous</td><td>1,154</td><td>483</td><td><strong>96.6%</strong></td></tr>
+      <tr><td>The true labels (knowable only because the plant is declared)</td><td>800</td><td>489</td><td><strong>97.8%</strong></td></tr>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Read the audit and the second pass together.</strong> The audit says the first pass was mostly right: about 85 percent of its flags were real, on a sample of 20. The second pass says it was also mostly done: 6 flags, one test digit. A detector that is accurate and exhausted is the moment to stop running it and start reading the 56 errors it cannot see.</p>
+    </div>
+  </section>
+
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>After the capstone</h2>
+      <span class="tag exercise">60 min</span>
+    </div>
+    <ol>
+      <li><strong>Write the spec for your own dataset.</strong> All seven fields plus the audit and stopping rule, one page. Leave a field visibly empty rather than guessing; an empty field is a to-do, a guessed one is a future argument.</li>
+      <li><strong>Run a 20-flag audit.</strong> Draw 20 flags from your detector at random, with a recorded seed, and have them checked by someone holding the guideline. Write the result as "k of 20", not a percentage.</li>
+      <li><strong>Set your stopping rule in numbers before the next pass.</strong> How few flags, and how low an audited precision, ends the cleaning? Write it on the spec, then run the pass.</li>
+      <li><strong>Hand the spec to someone who did not build it</strong> and ask them to rerun it. Every question they ask is a missing field. Every number they cannot reproduce is a missing line in the freeze list.</li>
+    </ol>
+  </section>
+
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <p>Clear all three and session 6 gets stamped in your passport.</p>
+
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · On the shipped seed, one combination of edits scores 483 of 500 and another scores 482. What do you conclude?</p>
+      <button class="qopt" type="button">A · The first combination is better by 0.2 points and should go in the spec as the winner</button>
+      <button class="qopt" type="button">B · Nothing yet: one test digit is 0.2 points, and a one-digit gap on one seed can flip with the split; compare over many seeds, as the twenty-seed sweep does, and if they stay close pick the simpler edit</button>
+      <button class="qopt" type="button">C · The second combination is better because it probably used fewer rows</button>
+      <button class="qopt" type="button">D · The test set is broken and should be relabelled</button>
+      <p class="qwhy">The sweep shows how small real differences are: relabel, relabel plus shift and collect plus clean average 94.45, 94.52 and 94.60, all within one test digit. A single-seed, single-digit gap is below what this test set can measure. D breaks the test-set rule outright.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="3">
+      <p class="qtext">2 · At work there is no declared plant. How do you estimate your detector's precision?</p>
+      <button class="qopt" type="button">A · Use the precision printed on the bench, 86.7 percent</button>
+      <button class="qopt" type="button">B · Review the 20 flags the detector is most confident about</button>
+      <button class="qopt" type="button">C · Assume it is 51 percent, the average from the labelerrors.com study</button>
+      <button class="qopt" type="button">D · Draw a random sample of flags with a recorded seed, have each checked by people holding the guideline, and report it as "k of n", for example 17 of 20, with the sample size</button>
+      <p class="qwhy">Northcutt, Athalye and Mueller checked every flag with five workers and a 3-of-5 rule, and found precision ranging from 15 of 100 on MNIST to much higher elsewhere: it depends on the data, so neither the bench's number nor the study's average transfers. A top-20 review measures only the easiest flags.</p>
+    </div>
+
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · A second detector pass flags 6 rows, and test accuracy moves from 478 to 479. What should the team do?</p>
+      <button class="qopt" type="button">A · Stop running the detector: it has found what it can see, and the one-digit move is noise; move the effort to the guideline or the weak slice, where the 56 errors it misses come from</button>
+      <button class="qopt" type="button">B · Run a third and fourth pass until accuracy stops rising</button>
+      <button class="qopt" type="button">C · Switch to the in-sample detector, which is more precise</button>
+      <button class="qopt" type="button">D · Remove every row the first pass flagged, to be safe</button>
+      <p class="qwhy">Pass 1 moved 72 wrong labels; pass 2 moved four and one test digit. The stopping rule, written before the pass, says a pass this small ends the cleaning. C is session 3's leak: 95.2 percent precise and only 30.1 percent recall, because each row votes for itself.</p>
+    </div>
+
+    <p class="quiz-score"></p>
+  </section>
+
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources covered</span>
+      <h2>What this session teaches, and where it came from</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Data-Centric AI Competition (2021)</span><span class="note">The format, a dataset improved for a fixed model and scored on accuracy, and the 4 September 2021 deadline read at source; model, image size and caps reported from participant write-ups</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng, "MLOps: From Model-centric to Data-centric AI" (2021)</span><span class="note">The four properties of good data used as the spec's acceptance checklist, and the speech-transcription example, read from the slide deck</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Northcutt, Athalye, Mueller (2021), label errors in test sets</span><span class="note">The five-worker, 3-of-5 audit design, the 51 percent average confirmation, 15 of 100 on MNIST, and the ResNet-18 against ResNet-50 flip, read from the NeurIPS paper</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">MIT, Introduction to Data-Centric AI (2023, 2024)</span><span class="note">The rule that evaluation examples are only for computing scores, never for modelling decisions, read from the lecture notes</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Every bench and build-along number</span><span class="note">Computed on the UCI Optical Recognition of Handwritten Digits (Alpaydin and Kaynak, 1998); the noise plant, the sample edit log and the filled spec are constructed and say so</span></div>
+    </div>
+    <p class="mono" style="margin-top:14px">Every fact on this page, and its verification tier, is recorded in the course's source map.</p>
+  </section>
+
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 6 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Only the data moves</b><span>Model, seed and test set frozen; every edit logged. 96.6 on the bench, from edits alone.</span></div>
+      <div class="cheat-item"><b>One digit is 0.2 points</b><span>A one-digit, one-seed gap is not a win. Judge against multi-seed means.</span></div>
+      <div class="cheat-item"><b>Seven fields, one page</b><span>Freeze list, test-set rule, guideline version, detector, edit log, result table, what not to claim.</span></div>
+      <div class="cheat-item"><b>The edit log</b><span>Row, old, new or removed, detector votes, reviewer, guideline version. Never overwrite in place.</span></div>
+      <div class="cheat-item"><b>Audit at random</b><span>Sample flags with a seed, check by hand, report "17 of 20" with the sample size.</span></div>
+      <div class="cheat-item"><b>Stop on a rule</b><span>Written before the pass. A second pass of 6 flags and one digit says: go fix the guideline or the slice.</span></div>
+    </div>
+  </section>
+
+  <div class="callout next">
+    <span class="nx-pill">Next session</span>
+    <p>This is the last of the six. Go back to the <a href="../index.html">course home</a> for the full map, then take the spec where it leads. The next round of error analysis, the spreadsheet that tells you which errors to fix first, lives in <a href="https://phoebefu6.github.io/learn-ml-strategy-with-phoebe/courses/p3-error-analysis-spreadsheet.html">ML Strategy ↗</a>. The timely feedback from production that Ng's checklist asks for, catching the data drifting after the spec is signed, lives in <a href="https://phoebefu6.github.io/learn-data-observability-with-phoebe/">Data Observability ↗</a>.</p>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Session 6 of 6 · learn-data-centric-ai-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="05-slice-augment-or-collect.html">← Prev: Slice, augment or collect</a> &nbsp;·&nbsp; <a href="../index.html">Course home</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=3"></script>
+</body>
+</html>
